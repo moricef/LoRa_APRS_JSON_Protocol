@@ -13,6 +13,11 @@ LoRa APRS receiver, iGate or digipeater and an application. It is intended
 for applications such as Graywolf, YAAC, PinPoint and diagnostic tools that
 need more information than a KISS or TNC2 connection can provide.
 
+The packet envelope may also carry non-APRS amateur packet-radio application
+data when it is representable as a TNC2 source, destination, path and
+information field. Schema 1.0 does not represent connected-mode AX.25 frames
+or other link-layer frames that cannot be preserved in that envelope.
+
 The protocol does not redefine APRS. APRS decoding follows the APRS Protocol
 Reference 1.2c. JSON exposes decoded values for convenience while retaining
 an exact copy of the clean APRS/TNC2 packet and representing RF-only RXT
@@ -165,7 +170,10 @@ tx MUST also advertise tx_status_ttl_ms.
 ## 6. Receive event
 
 An rx event represents exactly one physical packet accepted after LoRa CRC
-validation. Repeated copies of identical APRS content are distinct events.
+validation. A CRC-failed observation MUST NOT be emitted as rx, consume a
+sequence or be assigned a fabricated packet or path. Schema 1.0 does not
+define an event for failed-CRC radio observations. Repeated copies of identical
+packet content are distinct events.
 
     {
       "protocol": "lora-aprs-json",
@@ -228,8 +236,12 @@ which a `!` position DTI may occur after a prefix, up to byte position 39.
 
 ### APRS decoding
 
-packet.aprs is optional. Its absence means that the producer did not decode
-APRS. A failure to decode APRS does not invalidate the reception.
+packet.aprs is optional. Its absence means that the information field is
+non-APRS or that the producer did not decode APRS. parse_status=parsed describes
+the TNC2 envelope, not the application carried in its information field. A
+keyboard-to-keyboard, BBS or other application payload carried inside a
+TNC2-compatible datagram is therefore transported losslessly with packet.aprs
+omitted. A failure to decode APRS does not invalidate the reception.
 
 Each decoded object contains type, valid, optional warnings, and decoded
 type-specific members.
@@ -384,6 +396,13 @@ tuple, tx or rx may be omitted and identity_status is unresolved.
 Clipping SHOULD be marked with rssi_clipped, snr_clipped or
 frequency_error_clipped.
 
+RXT describes successful remote receptions that became part of the relayed
+packet. A station that detects energy but fails CRC cannot append telemetry to
+that packet and MUST NOT be invented as a hop. In particular, has_data=false
+represents a used legacy path hop, not a receiver that may have failed CRC.
+RXT metadata is independent of packet.aprs and MAY accompany a TNC2-compatible
+non-APRS packet.
+
 ### RXT v1 encoding
 
 reception.rxt.encoding is required and is `rxt-v1`. Decoding a tuple requires
@@ -440,7 +459,7 @@ Transmission is disabled unless explicitly configured.
 tx_result repeats request_id and reports queued, sent, rejected or failed.
 code and reason are required for rejected and failed. code is a stable,
 machine-readable lower-case identifier; reason is human-readable. The standard
-pre-queue rejection codes are invalid_packet for an invalid TNC2/APRS envelope
+pre-queue rejection codes are invalid_packet for an invalid TNC2 envelope
 and unsupported_packet for a packet the configured transport cannot emit.
 Implementations MAY define additional codes using the schema's naming pattern.
 tx_result is returned by the TX HTTP endpoints; it is not inserted into the
@@ -454,7 +473,7 @@ two representations differ.
 
 Before queueing, the producer MUST validate that the authoritative packet
 bytes form a usable TNC2 packet and can be transmitted by the configured
-APRS/radio transport. At minimum, a TNC2 packet has a non-empty source before
+packet/radio transport. At minimum, a TNC2 packet has a non-empty source before
 `>`, a non-empty destination/path portion between `>` and the first `:`, and no
 embedded CR or LF. This validation does not require the producer to understand
 every APRS DTI. Invalid or unsupported packets MUST NOT be queued and MUST
@@ -576,7 +595,7 @@ Where they disagree about an APRS field, APRS 1.2c takes precedence.
 
 ## 13. Acknowledgements
 
-RXT (Receive eXtended Telemetry) was developed by Jon Adams (N7UV). The RXT
+RXT (Remote Receiver Telemetry) was developed by Jon Adams (N7UV). The RXT
 interoperability rules in this specification were verified against the GPLv3
 LoRa_APRS_iGate implementation by Ricardo Guzman (CA2RXU). These
 acknowledgements are informational and do not alter the normative requirements

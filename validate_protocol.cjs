@@ -277,6 +277,8 @@ for (const type of eventTypes) {
 
 const alphanumericAddress = events.find((event) => event.packet?.source?.suffix === "GS");
 assert.ok(alphanumericAddress, "missing alphanumeric address suffix vector");
+const nonAprsRxt = events.find((event) => event.packet?.aprs === undefined && event.reception?.rxt);
+assert.ok(nonAprsRxt, "missing non-APRS RXT vector");
 
 function changed(source, update) {
   return Object.assign(structuredClone(source), update);
@@ -331,6 +333,10 @@ semanticInvalid(
   () => checkPacketCopies(mismatchedNumericSsid, "mismatched numeric SSID"),
   "numeric SSID value mismatch",
 );
+
+const crcFailedReception = structuredClone(nonAprsRxt);
+crcFailedReception.reception.crc_valid = false;
+schemaInvalid(crcFailedReception, "CRC-failed observation emitted as RX");
 
 const failedWithoutReason = changed(byType.tx_result, { status: "failed" });
 schemaInvalid(failedWithoutReason, "failed TX without reason");

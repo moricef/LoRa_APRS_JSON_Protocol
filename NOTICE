@@ -1,6 +1,6 @@
 LoRa APRS JSON Protocol
 
-RXT (Receive eXtended Telemetry) was developed by Jon Adams (N7UV).
+RXT (Remote Receiver Telemetry) was developed by Jon Adams (N7UV).
 
 The RXT interoperability rules documented here were verified against the
 GPLv3 LoRa_APRS_iGate implementation by Ricardo Guzman (CA2RXU).

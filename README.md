@@ -6,8 +6,8 @@ such as mapping clients, diagnostic tools, and station software.
 
 The protocol uses newline-delimited JSON (NDJSON) over HTTP. It preserves the
 exact clean APRS/TNC2 packet bytes, including binary Mic-E information, while
-exposing optional parsed APRS data and preserving RF-only RXT metadata
-separately.
+exposing optional parsed APRS data and preserving RF-only Remote Receiver
+Telemetry (RXT) metadata separately.
 
 ## Status
 
@@ -97,11 +97,12 @@ npm test
 ```
 
 The suite compiles the schema with AJV in strict Draft 2020-12 mode and format
-validation enabled. It currently exercises 20 positive and 27 negative
+validation enabled. It currently exercises 21 positive and 28 negative
 vectors. Semantic checks include Base64 byte equality, APRS compressed position
-decoding, DTI offsets, address suffix preservation, RXT tuple decoding,
-multi-reception sequence continuity and identity, malformed packet transport,
-version rejection, and pre-queue TX validation and lifecycle constraints.
+decoding, DTI offsets, address suffix preservation, RXT on non-APRS TNC2 data,
+CRC rejection, multi-reception sequence continuity and identity, malformed
+packet transport, version rejection, and pre-queue TX validation and lifecycle
+constraints.
 
 ## Optional transmission
 
