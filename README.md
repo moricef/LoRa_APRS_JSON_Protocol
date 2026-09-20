@@ -48,6 +48,7 @@ RXT traffic. See [VALIDATION.md](VALIDATION.md) for the detailed status.
   semantic validation suite.
 - [package-lock.json](package-lock.json) — exact dependency graph used for
   reproducible validator installation with `npm ci`.
+- [NOTICE](NOTICE) — origin and implementation attribution for RXT.
 
 ## Event model
 
@@ -115,4 +116,5 @@ rules, bounded queues, record-size limits, and safe handling of untrusted text.
 ## License
 
 This specification, schema, validation code, and examples are licensed under
-the [Apache License 2.0](LICENSE).
+the [Apache License 2.0](LICENSE). RXT origin and reference-implementation
+credits are recorded in [NOTICE](NOTICE).

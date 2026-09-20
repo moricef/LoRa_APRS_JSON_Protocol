@@ -561,3 +561,11 @@ untrusted and must be escaped in HTML.
 Field semantics come from APRS Protocol Reference 1.2c in the companion
 aprs101-fr project. This protocol adds transport and LoRa metadata only.
 Where they disagree about an APRS field, APRS 1.2c takes precedence.
+
+## 13. Acknowledgements
+
+RXT (Receive eXtended Telemetry) was developed by Jon (N7UV). The RXT
+interoperability rules in this specification were verified against the GPLv3
+LoRa_APRS_iGate implementation by Ricardo Guzman (CA2RXU). These
+acknowledgements are informational and do not alter the normative requirements
+or the repository's Apache-2.0 license.
