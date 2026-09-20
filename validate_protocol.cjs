@@ -18,10 +18,14 @@ let positiveCount = 0;
 let negativeCount = 0;
 
 function readNdjson(relativePath) {
-  const input = fs.readFileSync(path.join(root, relativePath), "utf8");
-  assert.ok(input.endsWith("\n"), `${relativePath}: final LF is required`);
+  return readNdjsonFile(path.join(root, relativePath), relativePath);
+}
+
+function readNdjsonFile(filePath, label = filePath) {
+  const input = fs.readFileSync(filePath, "utf8");
+  assert.ok(input.endsWith("\n"), `${label}: final LF is required`);
   return input.slice(0, -1).split("\n").map((line, index) => {
-    assert.ok(line.length > 0, `${relativePath}:${index + 1}: blank record`);
+    assert.ok(line.length > 0, `${label}:${index + 1}: blank record`);
     return JSON.parse(line);
   });
 }
@@ -420,3 +424,20 @@ semanticInvalid(
 );
 
 console.log(`validated ${positiveCount} positive and ${negativeCount} negative vectors`);
+
+for (const capturePath of process.argv.slice(2)) {
+  const records = readNdjsonFile(path.resolve(capturePath));
+  records.forEach((record, index) => {
+    const label = `${capturePath}:${index + 1}`;
+    schemaValid(record, label);
+    if (record.event === "rx" || record.event === "tx_request") {
+      checkPacketCopies(record, label);
+    }
+    if (record.event === "tx_request") checkTxQueueable(record, label);
+    if (["hello", "rx", "heartbeat", "gap", "error", "tx_result"].includes(record.event)) {
+      checkProducerStreamEvent(record, label);
+    }
+  });
+  checkOrderedRxStream(records, capturePath);
+  console.log(`validated capture ${capturePath}: ${records.length} records`);
+}

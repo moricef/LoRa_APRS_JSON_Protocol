@@ -14,6 +14,13 @@ npm ci
 npm test
 ```
 
+Validate one or more captured NDJSON streams with the same schema and semantic
+checks:
+
+```sh
+node validate_protocol.cjs captures/f4mlv-2-pilot.ndjson
+```
+
 The validator compiles the schema as JSON Schema 2020-12 with AJV strict mode
 and format validation enabled. It currently checks 21 positive and 28 negative
 vectors, including every declared event type.
