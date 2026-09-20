@@ -14,9 +14,15 @@ Telemetry (RXT) metadata separately.
 Schema version 1.0 is a validated implementation candidate for the transport
 and event model. It is not yet a deployed interoperability standard.
 
-The next validation stage requires an actual firmware producer, an independent
-consumer, reconnect and history tests, and captures of real Mic-E and multi-hop
-RXT traffic. See [VALIDATION.md](VALIDATION.md) for the detailed status.
+An actual firmware producer now runs on the LoRa_APRS_iGate
+`feature/aprs-json-producer` branch, and Graywolf's `feature/rxt-telemetry`
+branch provides an independent consumer. The repository includes a captured
+firmware stream with two real RXT receptions.
+
+Remaining validation focuses on reconnect and history behavior, target-memory
+limits, and additional real captures including binary Mic-E, malformed,
+blacklisted and mixed legacy/RXT multi-hop traffic. See
+[VALIDATION.md](VALIDATION.md) for the detailed status.
 
 ## Design goals
 
