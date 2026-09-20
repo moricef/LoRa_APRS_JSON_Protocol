@@ -80,6 +80,47 @@ function checkRxt(event, rxt, label) {
   }
 }
 
+function checkAddress(address, token, label) {
+  assert.equal(address.text, token, `${label}: address text mismatch`);
+  const repeated = token.endsWith("*");
+  const identity = repeated ? token.slice(0, -1) : token;
+  if (address.repeated !== undefined) {
+    assert.equal(address.repeated, repeated, `${label}: repeated marker mismatch`);
+  }
+  const delimiter = identity.indexOf("-");
+  if (delimiter > 0) {
+    assert.equal(
+      address.suffix,
+      identity.slice(delimiter + 1),
+      `${label}: suffix mismatch`,
+    );
+    if (address.call !== undefined) {
+      assert.equal(address.call, identity.slice(0, delimiter), `${label}: call mismatch`);
+    }
+  } else if (address.suffix !== undefined) {
+    assert.fail(`${label}: suffix without address delimiter`);
+  }
+  if (address.ssid !== undefined) {
+    assert.match(address.suffix, /^[0-9]+$/, `${label}: non-decimal numeric SSID`);
+    assert.equal(BigInt(address.ssid), BigInt(address.suffix), `${label}: SSID value mismatch`);
+  }
+}
+
+function checkParsedAddresses(packet, raw, separator, label) {
+  const header = raw.subarray(0, separator).toString("utf8");
+  const sourceSeparator = header.indexOf(">");
+  assert.ok(sourceSeparator > 0, `${label}: missing TNC2 source separator`);
+  const source = header.slice(0, sourceSeparator);
+  const route = header.slice(sourceSeparator + 1).split(",");
+  assert.ok(route[0].length > 0, `${label}: empty TNC2 destination`);
+  assert.equal(packet.path.length, route.length - 1, `${label}: path length mismatch`);
+  checkAddress(packet.source, source, `${label}.packet.source`);
+  checkAddress(packet.destination, route[0], `${label}.packet.destination`);
+  packet.path.forEach((address, index) => {
+    checkAddress(address, route[index + 1], `${label}.packet.path[${index}]`);
+  });
+}
+
 function checkPacketCopies(event, label) {
   if (event.event !== "rx" && event.event !== "tx_request") return;
   const packet = event.packet;
@@ -102,6 +143,7 @@ function checkPacketCopies(event, label) {
   }
   const separator = raw.indexOf(0x3a);
   assert.notEqual(separator, -1, `${label}: missing TNC2 header separator`);
+  checkParsedAddresses(packet, raw, separator, label);
   const information = decodedBase64(
     packet.information.raw_base64,
     `${label}.packet.information.raw_base64`,
@@ -224,10 +266,17 @@ for (const [file, records] of [
 assert.equal(stream[0].event, "hello", "stream must start with hello");
 checkOrderedRxStream(stream, "stream");
 checkOrderedRxStream(sequenceStream, "sequence-stream");
-const byType = Object.fromEntries(events.map((event) => [event.event, event]));
-for (const type of ["hello", "rx", "heartbeat", "gap", "error", "tx_request", "tx_result"]) {
+const eventTypes = ["hello", "rx", "heartbeat", "gap", "error", "tx_request", "tx_result"];
+const byType = Object.fromEntries(eventTypes.map((type) => [
+  type,
+  events.find((event) => event.event === type),
+]));
+for (const type of eventTypes) {
   assert.ok(byType[type], `missing positive vector for ${type}`);
 }
+
+const alphanumericAddress = events.find((event) => event.packet?.source?.suffix === "GS");
+assert.ok(alphanumericAddress, "missing alphanumeric address suffix vector");
 
 function changed(source, update) {
   return Object.assign(structuredClone(source), update);
@@ -260,6 +309,28 @@ schemaInvalid(incompleteParsedPacket, "parsed packet without parsed members");
 const nullMetric = structuredClone(byType.rx);
 nullMetric.reception.local = { rssi_dbm: null };
 schemaInvalid(nullMetric, "null metric");
+
+const alphanumericSsid = structuredClone(alphanumericAddress);
+alphanumericSsid.packet.source.ssid = 0;
+schemaInvalid(alphanumericSsid, "alphanumeric suffix represented as SSID");
+
+const missingAlphanumericSuffix = structuredClone(alphanumericAddress);
+delete missingAlphanumericSuffix.packet.source.suffix;
+semanticInvalid(
+  () => checkPacketCopies(missingAlphanumericSuffix, "missing alphanumeric suffix"),
+  "missing parsed alphanumeric suffix",
+);
+
+const numericSsidWithoutSuffix = structuredClone(stream[1]);
+delete numericSsidWithoutSuffix.packet.source.suffix;
+schemaInvalid(numericSsidWithoutSuffix, "numeric SSID without suffix");
+
+const mismatchedNumericSsid = structuredClone(stream[1]);
+mismatchedNumericSsid.packet.source.ssid = 2;
+semanticInvalid(
+  () => checkPacketCopies(mismatchedNumericSsid, "mismatched numeric SSID"),
+  "numeric SSID value mismatch",
+);
 
 const failedWithoutReason = changed(byType.tx_result, { status: "failed" });
 schemaInvalid(failedWithoutReason, "failed TX without reason");

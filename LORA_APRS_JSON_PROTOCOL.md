@@ -46,10 +46,17 @@ the consumer into a later schema version; Section 11 defines version handling.
 - Unknown, unavailable or inapplicable information is omitted. null MUST NOT
   be emitted unless a field explicitly allows it; schema 1.0 has no such field.
 - Address text preserves what was received.
-- An SSID is a non-negative JSON integer with no AX.25-derived maximum.
-  Producers MUST NOT reject F4JJE-16 because AX.25 cannot represent it. The
-  complete address remains available in text for implementations whose native
-  integer range is narrower than an incoming value.
+- A parsed suffix following `-` is represented by the non-empty string
+  suffix. It is opaque: this protocol assigns it neither an AX.25 meaning nor
+  a fixed namespace such as 0–15 or 16–ZZ. New suffix values do not require a
+  schema revision while their syntax and opaque semantics remain unchanged.
+- ssid is an optional non-negative integer view. It MAY be emitted only when
+  suffix consists entirely of ASCII decimal digits and the value can be
+  represented exactly by the producer. It MUST equal the base-10 value of
+  suffix. Otherwise ssid MUST be omitted.
+- Producers MUST NOT reject F4JJE-16, NN7LE-S or NN7LE-GS merely because AX.25
+  cannot represent the suffix. The complete address remains authoritative in
+  text for implementations whose native model is narrower.
 
 ### Exact clean packet preservation
 
@@ -181,12 +188,13 @@ validation. Repeated copies of identical APRS content are distinct events.
       "raw_tnc2_base64": "RjZaWlotMT5BUExSRzEsRjZERVYtMTAqLEY0TUxWLTEwKjo9...",
       "tnc2": "F6ZZX-1>APLRG1,F6DEV-10*,F4MLV-10*:...",
       "parse_status": "parsed",
-      "source": {"text": "F6ZZX-1", "call": "F6ZZX", "ssid": 1},
+      "source": {"text": "F6ZZX-1", "call": "F6ZZX",
+                 "suffix": "1", "ssid": 1},
       "destination": {"text": "APLRG1", "call": "APLRG1"},
       "path": [
-        {"text": "F6DEV-10*", "call": "F6DEV", "ssid": 10,
+        {"text": "F6DEV-10*", "call": "F6DEV", "suffix": "10", "ssid": 10,
          "repeated": true, "kind": "station"},
-        {"text": "F4MLV-10*", "call": "F4MLV", "ssid": 10,
+        {"text": "F4MLV-10*", "call": "F4MLV", "suffix": "10", "ssid": 10,
          "repeated": true, "kind": "station"}
       ],
       "information": {
@@ -199,12 +207,16 @@ validation. Repeated copies of identical APRS content are distinct events.
       "aprs": {}
     }
 
-Path kind is station, alias, internet, q_construct or unknown. Parsed address
-members are hints; text is authoritative. raw_tnc2_base64 and parse_status are
-the only unconditional packet members. parse_status is parsed or malformed.
-With parsed, the producer MUST also emit source, destination, path and
-information. With malformed, it MAY emit partial members but MUST NOT invent
-values merely to satisfy the schema. A recognizable APRS form which the
+Path kind is station, alias, internet, q_construct or unknown. In a parsed
+station address, call is the portion before the suffix delimiter and suffix is
+the exact portion after it, excluding a path's trailing `*`. A suffix has no
+protocol-defined maximum length, but it remains bounded in practice by the
+complete packet, the advertised max_record_bytes and implementation resources.
+Parsed address members are hints; text is authoritative. raw_tnc2_base64 and
+parse_status are the only unconditional packet members. parse_status is parsed
+or malformed. With parsed, the producer MUST also emit source, destination,
+path and information. With malformed, it MAY emit partial members but MUST NOT
+invent values merely to satisfy the schema. A recognizable APRS form which the
 producer cannot decode is still a parsed packet and uses
 packet.aprs.type=unsupported. information.raw_base64 is mandatory whenever
 information is present.

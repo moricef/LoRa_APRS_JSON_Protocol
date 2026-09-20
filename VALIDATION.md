@@ -15,7 +15,7 @@ npm test
 ```
 
 The validator compiles the schema as JSON Schema 2020-12 with AJV strict mode
-and format validation enabled. It currently checks 19 positive and 23 negative
+and format validation enabled. It currently checks 20 positive and 27 negative
 vectors, including every declared event type.
 
 The executable validator is `validate_protocol.cjs`. The coherent single- and
@@ -27,6 +27,7 @@ The checks cover:
 - canonical Base64 and exact equality between raw bytes and optional text;
 - equality of the information bytes with the bytes after the TNC2 separator;
 - DTI byte, text and offset consistency;
+- exact opaque address suffix preservation and numeric SSID projection;
 - APRS compressed latitude, longitude, symbol table, overlay and comment;
 - RXT tuple count, order and metric decoding at the declared SF/BW;
 - exact RF packet reconstruction from the clean packet and RXT trailer;
@@ -65,6 +66,8 @@ replay behavior.
 - RXT tuple shape, hop identity and legacy-hop metric rules are constrained.
 - The schema `$id` identifies this repository's canonical raw schema resource.
 - Resume cursors remain opaque, and capability absence has defined behavior.
+- Address suffixes are opaque strings; numeric SSIDs are optional, consistent
+  projections rather than a limit on the identifier namespace.
 
 ## Remaining interoperability validation
 

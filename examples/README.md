@@ -10,7 +10,8 @@ event identifiers, a stable boot identifier, and monotonic uptime.
 `lora-aprs-json-vectors.ndjson` is a collection of independent positive test
 vectors covering every event type. It is not a chronological stream: records
 from both protocol directions are adjacent, and sequence/history values on one
-line do not establish state for another line.
+line do not establish state for another line. It also includes an independent
+`NN7LE-GS` reception demonstrating an opaque alphanumeric address suffix.
 
 All three files are consumed by `../validate_protocol.cjs`. From the repository
 root, install the declared development dependencies and run:

@@ -24,6 +24,8 @@ RXT traffic. See [VALIDATION.md](VALIDATION.md) for the detailed status.
   information, while preserving RF-only RXT metadata separately.
 - Keep station identities as strings without imposing the AX.25 SSID 0–15
   limit on application data.
+- Represent non-numeric address suffixes as opaque strings without defining a
+  fixed suffix namespace; packet and record limits still apply.
 - Transport malformed, unsupported, and future APRS content without loss.
 - Keep clean APRS packet data separate from local LoRa and RXT metadata.
 - Support continuous streaming, loss detection, and bounded history replay.
@@ -95,11 +97,11 @@ npm test
 ```
 
 The suite compiles the schema with AJV in strict Draft 2020-12 mode and format
-validation enabled. It currently exercises 19 positive and 23 negative
+validation enabled. It currently exercises 20 positive and 27 negative
 vectors. Semantic checks include Base64 byte equality, APRS compressed position
-decoding, DTI offsets, RXT tuple decoding, multi-reception sequence continuity
-and identity, malformed packet transport, version rejection, and pre-queue TX
-validation and lifecycle constraints.
+decoding, DTI offsets, address suffix preservation, RXT tuple decoding,
+multi-reception sequence continuity and identity, malformed packet transport,
+version rejection, and pre-queue TX validation and lifecycle constraints.
 
 ## Optional transmission
 

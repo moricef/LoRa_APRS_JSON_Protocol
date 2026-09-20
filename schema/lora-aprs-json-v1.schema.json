@@ -160,12 +160,29 @@
       "properties": {
         "text": { "type": "string", "minLength": 1 },
         "call": { "type": "string", "minLength": 1 },
+        "suffix": { "type": "string", "minLength": 1 },
         "ssid": { "type": "integer", "minimum": 0 },
         "repeated": { "type": "boolean" },
         "kind": {
           "enum": ["station", "alias", "internet", "q_construct", "unknown"]
         }
       },
+      "dependentRequired": {
+        "ssid": ["suffix"]
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "ssid": true },
+            "required": ["ssid"]
+          },
+          "then": {
+            "properties": {
+              "suffix": { "type": "string", "pattern": "^[0-9]+$" }
+            }
+          }
+        }
+      ],
       "additionalProperties": true
     },
     "information": {
