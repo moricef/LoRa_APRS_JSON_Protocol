@@ -217,6 +217,10 @@ schemaInvalid(nullMetric, "null metric");
 const failedWithoutReason = changed(byType.tx_result, { status: "failed" });
 schemaInvalid(failedWithoutReason, "failed TX without reason");
 
+const mismatchedTxText = structuredClone(byType.tx_request);
+mismatchedTxText.packet.tnc2 = "N0CALL>APRS:>Different bytes";
+semanticInvalid(() => checkPacketCopies(mismatchedTxText, "mismatched TX text"), "mismatched TX text");
+
 const terminalTx = changed(byType.tx_result, { status: "sent" });
 schemaValid(terminalTx, "terminal TX result");
 

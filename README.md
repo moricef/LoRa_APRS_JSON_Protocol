@@ -89,7 +89,7 @@ npm test
 ```
 
 The suite compiles the schema with AJV in strict Draft 2020-12 mode and format
-validation enabled. It currently exercises 14 positive and 17 negative
+validation enabled. It currently exercises 14 positive and 18 negative
 vectors. Semantic checks include Base64 byte equality, APRS compressed position
 decoding, DTI offsets, RXT tuple decoding, event identity rules, malformed
 packet transport, version rejection, and TX lifecycle constraints.

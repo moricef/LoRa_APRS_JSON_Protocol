@@ -15,7 +15,7 @@ npm test
 ```
 
 The validator compiles the schema as JSON Schema 2020-12 with AJV strict mode
-and format validation enabled. It currently checks 14 positive and 17 negative
+and format validation enabled. It currently checks 14 positive and 18 negative
 vectors, including every declared event type.
 
 The executable validator is `validate_protocol.cjs`. The stream example and
@@ -29,6 +29,7 @@ The checks cover:
 - APRS compressed latitude, longitude, symbol table, overlay and comment;
 - RXT tuple count, order and metric decoding at the declared SF/BW;
 - exact RF packet reconstruction from the clean packet and RXT trailer;
+- exact equality of binary and text representations in TX requests;
 - control events without reception sequence identities;
 - producer-originated error identity and uptime requirements;
 - capability requirements for history resume;

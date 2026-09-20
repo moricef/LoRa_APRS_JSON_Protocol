@@ -31,8 +31,9 @@ The terms MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are normative.
 A producer conforms to schema version 1.0 when it emits schema-valid events and
 follows the transport and ordering rules below. Schema validation alone does
 not establish conformance: relationships between byte copies, identifiers and
-stream order are also normative. Consumers MUST ignore unknown members so
-compatible additions can be made within the same major version.
+stream order are also normative. Consumers MUST ignore unknown object members
+in records whose declared schema_version they support. This rule does not opt
+the consumer into a later schema version; Section 11 defines version handling.
 
 ## 3. Representation
 
@@ -426,6 +427,11 @@ HTTP endpoints; it is not inserted into the APRS receive stream and is not a
 replayable reception event. RXT MUST NOT be appended because client-originated
 traffic has no RF receive context.
 
+tx_request.packet.raw_tnc2_base64 is authoritative for transmission. When
+tx_request.packet.tnc2 is present, the decoded raw_tnc2_base64 bytes MUST equal
+the UTF-8 encoding of tnc2 exactly. A producer MUST reject a request when the
+two representations differ.
+
 ## 9. HTTP transports
 
 Continuous stream:
@@ -521,6 +527,11 @@ or closed-enum value requires a new schema_version; a consumer that does not
 support that schema MUST skip the unknown record or fail cleanly, never
 reinterpret it. Removing or reinterpreting a member requires a new protocol
 version. Exact raw bytes remain the compatibility boundary.
+
+Ignoring unknown members applies only to records whose schema_version the
+consumer explicitly supports. It does not imply that a consumer supporting
+schema 1.0 automatically accepts a record declaring schema 1.1, even when the
+newer record appears to contain only optional additions.
 
 Implementations limit nesting, record size, third-party recursion, history
 and client queues. Non-finite numbers are forbidden. Transmission requires
