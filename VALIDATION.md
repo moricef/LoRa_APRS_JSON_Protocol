@@ -15,7 +15,7 @@ npm test
 ```
 
 The validator compiles the schema as JSON Schema 2020-12 with AJV strict mode
-and format validation enabled. It currently checks 12 positive and 14 negative
+and format validation enabled. It currently checks 14 positive and 17 negative
 vectors, including every declared event type.
 
 The executable validator is `validate_protocol.cjs`. The stream example and
@@ -28,14 +28,17 @@ The checks cover:
 - DTI byte, text and offset consistency;
 - APRS compressed latitude, longitude, symbol table, overlay and comment;
 - RXT tuple count, order and metric decoding at the declared SF/BW;
+- exact RF packet reconstruction from the clean packet and RXT trailer;
 - control events without reception sequence identities;
+- producer-originated error identity and uptime requirements;
+- capability requirements for history resume;
 - reception sequence starting at 1;
 - UTC timestamps, invalid Base64, unknown events and invalid APRS warnings;
 - transport of a malformed packet using only its authoritative raw bytes;
 - tolerance of unknown optional object members.
 
 The APRS checks were reviewed against APRS Protocol Reference 1.2c. The RXT
-checks use the encoding equations implemented by LoRa_APRS_iGate.
+checks use the normative `rxt-v1` equations in the protocol specification.
 
 ## Corrections made during audit
 
@@ -52,6 +55,8 @@ checks use the encoding equations implemented by LoRa_APRS_iGate.
 - The example's compressed symbol overlay and comment boundary were fixed.
 - The example RXT bytes were recalculated from the published measurements.
 - RXT tuple shape, hop identity and legacy-hop metric rules are constrained.
+- The schema `$id` identifies this repository's canonical raw schema resource.
+- Resume cursors remain opaque, and capability absence has defined behavior.
 
 ## Remaining interoperability validation
 

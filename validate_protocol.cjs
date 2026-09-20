@@ -14,6 +14,8 @@ const schema = JSON.parse(
 const ajv = new Ajv2020({ allErrors: true, strict: true, validateFormats: true });
 addFormats(ajv);
 const validate = ajv.compile(schema);
+let positiveCount = 0;
+let negativeCount = 0;
 
 function readNdjson(relativePath) {
   const input = fs.readFileSync(path.join(root, relativePath), "utf8");
@@ -26,16 +28,56 @@ function readNdjson(relativePath) {
 
 function schemaValid(value, label) {
   assert.ok(validate(value), `${label}: ${ajv.errorsText(validate.errors)}`);
+  positiveCount += 1;
 }
 
 function schemaInvalid(value, label) {
   assert.equal(validate(value), false, `${label}: unexpectedly accepted`);
+  negativeCount += 1;
+}
+
+function semanticInvalid(callback, label) {
+  assert.throws(callback, undefined, `${label}: unexpectedly accepted`);
+  negativeCount += 1;
 }
 
 function decodedBase64(value, label) {
   const bytes = Buffer.from(value, "base64");
   assert.equal(bytes.toString("base64"), value, `${label}: non-canonical Base64`);
   return bytes;
+}
+
+function checkRxt(event, rxt, label) {
+  if (rxt === undefined) return;
+  assert.equal(rxt.encoding, "rxt-v1", `${label}: unsupported RXT encoding`);
+  rxt.hops.forEach((hop, index) => {
+    assert.equal(hop.ordinal, index + 1, `${label}: non-contiguous RXT ordinal`);
+  });
+  assert.equal(
+    rxt.hops.filter((hop) => hop.has_data).length,
+    rxt.raw.length / 4,
+    `${label}: RXT tuple/hop count mismatch`,
+  );
+  const radio = event.reception.radio;
+  const scale = (2 ** radio.spreading_factor / (radio.bandwidth_hz / 1000)) * 10;
+  const measured = rxt.hops.filter((hop) => hop.has_data);
+  for (let index = 0; index < measured.length; index += 1) {
+    const values = [...rxt.raw.slice(index * 4, index * 4 + 4)]
+      .map((character) => character.charCodeAt(0) - 33);
+    const normalized = (values[2] - 45) / 45;
+    assert.equal(measured[index].rssi_dbm, values[0] - 130, `${label}: RXT RSSI mismatch`);
+    assert.equal(measured[index].snr_db, values[1] * 0.25 - 9, `${label}: RXT SNR mismatch`);
+    assert.equal(
+      measured[index].frequency_error_hz,
+      Math.trunc(normalized * Math.abs(normalized) * 2500),
+      `${label}: RXT frequency error mismatch`,
+    );
+    assert.equal(
+      measured[index].tth_ms,
+      Math.trunc((1.08 ** values[3] - 1) * scale),
+      `${label}: RXT TTH mismatch`,
+    );
+  }
 }
 
 function checkPacketCopies(event, label) {
@@ -46,6 +88,18 @@ function checkPacketCopies(event, label) {
     assert.deepEqual(raw, Buffer.from(packet.tnc2, "utf8"), `${label}: tnc2 mismatch`);
   }
   if (event.event !== "rx") return;
+  const rxt = event.reception.rxt;
+  if (packet.rf_tnc2_base64 !== undefined) {
+    const rf = decodedBase64(packet.rf_tnc2_base64, `${label}.packet.rf_tnc2_base64`);
+    const expected = rxt === undefined
+      ? raw
+      : Buffer.concat([raw, Buffer.from(`{${rxt.raw}}`, "ascii")]);
+    assert.deepEqual(rf, expected, `${label}: RF/clean/RXT byte relationship mismatch`);
+  }
+  if (packet.parse_status === "malformed") {
+    checkRxt(event, rxt, label);
+    return;
+  }
   const separator = raw.indexOf(0x3a);
   assert.notEqual(separator, -1, `${label}: missing TNC2 header separator`);
   const information = decodedBase64(
@@ -103,39 +157,13 @@ function checkPacketCopies(event, label) {
     }, `${label}: compressed symbol mismatch`);
     assert.equal(aprs.decoded.comment, body.subarray(13).toString("utf8"), `${label}: comment mismatch`);
   }
-  const rxt = event.reception.rxt;
-  if (rxt !== undefined) {
-    rxt.hops.forEach((hop, index) => {
-      assert.equal(hop.ordinal, index + 1, `${label}: non-contiguous RXT ordinal`);
-    });
-    assert.equal(
-      rxt.hops.filter((hop) => hop.has_data).length,
-      rxt.raw.length / 4,
-      `${label}: RXT tuple/hop count mismatch`,
-    );
-    if (event.reception.radio !== undefined) {
-      const radio = event.reception.radio;
-      const scale = (2 ** radio.spreading_factor / (radio.bandwidth_hz / 1000)) * 10;
-      const measured = rxt.hops.filter((hop) => hop.has_data);
-      for (let index = 0; index < measured.length; index += 1) {
-        const values = [...rxt.raw.slice(index * 4, index * 4 + 4)]
-          .map((character) => character.charCodeAt(0) - 33);
-        const normalized = (values[2] - 45) / 45;
-        assert.equal(measured[index].rssi_dbm, values[0] - 130, `${label}: RXT RSSI mismatch`);
-        assert.equal(measured[index].snr_db, values[1] * 0.25 - 9, `${label}: RXT SNR mismatch`);
-        assert.equal(
-          measured[index].frequency_error_hz,
-          Math.trunc(normalized * Math.abs(normalized) * 2500),
-          `${label}: RXT frequency error mismatch`,
-        );
-        assert.equal(
-          measured[index].tth_ms,
-          Math.trunc((1.08 ** values[3] - 1) * scale),
-          `${label}: RXT TTH mismatch`,
-        );
-      }
-    }
-  }
+  checkRxt(event, rxt, label);
+}
+
+function checkProducerStreamEvent(event, label) {
+  assert.equal(typeof event.boot_id, "string", `${label}: missing producer boot_id`);
+  assert.ok(event.boot_id.length > 0, `${label}: empty producer boot_id`);
+  assert.ok(Number.isInteger(event.uptime_ms), `${label}: missing producer uptime_ms`);
 }
 
 const stream = readNdjson("examples/lora-aprs-json-stream.ndjson");
@@ -198,6 +226,10 @@ schemaInvalid(txHelloWithoutTtl, "TX capability without status retention");
 txHelloWithoutTtl.capabilities.tx_status_ttl_ms = 60000;
 schemaValid(txHelloWithoutTtl, "TX capability with status retention");
 
+const historyHelloWithoutDepth = structuredClone(byType.hello);
+delete historyHelloWithoutDepth.capabilities.history_events;
+schemaInvalid(historyHelloWithoutDepth, "history resume without retained depth");
+
 const compatibleAddition = changed(byType.rx, { future_optional_member: true });
 schemaValid(compatibleAddition, "unknown optional member");
 
@@ -206,5 +238,18 @@ malformedReception.event_id = "boot-a:2";
 malformedReception.sequence = 2;
 malformedReception.packet = { raw_tnc2_base64: "QkFE", parse_status: "malformed" };
 schemaValid(malformedReception, "lossless malformed reception");
+checkPacketCopies(malformedReception, "lossless malformed reception");
 
-console.log(`validated ${stream.length + events.length + 3} positive and 14 negative vectors`);
+const invalidRfCopy = structuredClone(stream[1]);
+invalidRfCopy.packet.rf_tnc2_base64 = Buffer.from("corrupt RF bytes", "utf8").toString("base64");
+semanticInvalid(() => checkPacketCopies(invalidRfCopy, "invalid RF copy"), "invalid RF copy");
+
+const serverError = changed(byType.error, { boot_id: "boot-a", uptime_ms: 17000 });
+schemaValid(serverError, "producer stream error");
+checkProducerStreamEvent(serverError, "producer stream error");
+semanticInvalid(
+  () => checkProducerStreamEvent(byType.error, "producer stream error without uptime"),
+  "producer stream error without uptime",
+);
+
+console.log(`validated ${positiveCount} positive and ${negativeCount} negative vectors`);

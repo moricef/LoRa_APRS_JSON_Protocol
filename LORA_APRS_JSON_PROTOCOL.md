@@ -68,7 +68,11 @@ on a validator which has format checking disabled.
 
 The RF-only RXT trailer is stored separately in reception.rxt.raw. The clean
 packet does not contain it. packet.rf_tnc2_base64 MAY preserve the exact RF
-form including the trailer.
+form including the trailer. When rf_tnc2_base64 and reception.rxt are both
+present, the decoded RF bytes MUST equal the decoded raw_tnc2_base64 bytes,
+followed immediately by ASCII `{`, the ASCII bytes of reception.rxt.raw, and
+ASCII `}`. When rf_tnc2_base64 is present without reception.rxt, its decoded
+bytes MUST equal raw_tnc2_base64 exactly.
 
 ## 4. Event envelope and identity
 
@@ -335,13 +339,16 @@ This protocol assigns no additional semantics to it.
         "coding_rate": "4/6"
       },
       "rxt": {
+        "encoding": "rxt-v1",
         "raw": ")!AC1W%J",
         "hops": [
           {"ordinal": 1, "tx": "F6ZZX-1", "rx": "F6DEV-10",
-           "has_data": true, "rssi_dbm": -122, "snr_db": -9.0,
+           "identity_status": "resolved", "has_data": true,
+           "rssi_dbm": -122, "snr_db": -9.0,
            "frequency_error_hz": -208, "tth_ms": 4158},
           {"ordinal": 2, "tx": "F6DEV-10", "rx": "F4MLV-10",
-           "has_data": true, "rssi_dbm": -114, "snr_db": 4.5,
+           "identity_status": "resolved", "has_data": true,
+           "rssi_dbm": -114, "snr_db": 4.5,
            "frequency_error_hz": -2075, "tth_ms": 7360}
         ]
       }
@@ -360,6 +367,26 @@ tuple, tx or rx may be omitted and identity_status is unresolved.
 Clipping SHOULD be marked with rssi_clipped, snr_clipped or
 frequency_error_clipped.
 
+### RXT v1 encoding
+
+reception.rxt.encoding is required and is `rxt-v1`. Decoding a tuple requires
+reception.radio.bandwidth_hz and reception.radio.spreading_factor. For the four
+ASCII tuple bytes b0 through b3, define xi = codepoint(bi) - 33. Each xi is an
+integer from 0 through 89. The decoded values are:
+
+    rssi_dbm = x0 - 130
+    snr_db = (x1 * 0.25) - 9
+    u = (x2 - 45) / 45
+    frequency_error_hz = trunc_toward_zero(u * abs(u) * 2500)
+    scale_ms = 10000 * (2 ^ spreading_factor) / bandwidth_hz
+    tth_ms = floor(((1.08 ^ x3) - 1) * scale_ms)
+
+The metrics of each has_data=true hop MUST equal these decoded values for its
+corresponding tuple. Tuples and has_data=true hops are ordered from the source
+toward the receiver. Legacy has_data=false hops occupy an ordinal in the
+physical chain but consume no tuple. This definition, rather than firmware
+source code, is normative for independent consumers.
+
 ## 7. Heartbeat, gap and error
 
 A producer SHOULD emit a heartbeat after 15 seconds without another event.
@@ -372,7 +399,9 @@ or unknown_event. gap is a statement about one resume request, not a missing
 radio event.
 
 An error contains stable code, human-readable message, recoverable and
-optional related_event_id.
+optional related_event_id. A producer-originated error written to the
+continuous stream MUST also contain boot_id and uptime_ms. An error sent by a
+client need not contain those producer fields.
 
 ## 8. Optional transmission
 
@@ -432,11 +461,17 @@ in ascending sequence order. An rx event arriving during hello or replay MUST
 therefore neither be lost nor overtake an older event.
 
 Without an after parameter, the connection starts with hello and then live
-events; retained history is not replayed. A present but empty or structurally
-invalid after value receives HTTP 400. A well-formed identifier which is
-unknown, belongs to another boot or has expired opens the stream and reports a
-gap with the corresponding reason. Authentication failures use HTTP 401 or
-403.
+events; retained history is not replayed. event_id has no public syntax. A
+present but empty after value, or a value that cannot be URL-decoded, receives
+HTTP 400. Every other decoded non-empty string is treated as one opaque event
+identifier. If it is unrecognized, belongs to another boot or has expired, the
+stream opens and reports a gap with the corresponding reason.
+
+Resume is available only when hello advertises history_resume; in that case
+history_events is required and greater than zero. A client MUST NOT send after
+unless that capability was advertised. A producer without history_resume
+returns HTTP 400 with error code history_resume_unsupported when after is
+present. Authentication failures use HTTP 401 or 403.
 
 Snapshot:
 

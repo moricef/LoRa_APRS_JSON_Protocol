@@ -67,7 +67,8 @@ A minimal application can:
 2. Read one JSON object per line.
 3. Process `rx` events.
 4. Decode `packet.raw_tnc2_base64`, or use `packet.tnc2` when present.
-5. Store the last `event_id` and reconnect with `?after=<event_id>`.
+5. If `hello` advertises `history_resume`, store the last `event_id` and
+   reconnect with `?after=<event_id>`.
 
 Parsed APRS data under `packet.aprs` is optional convenience data. The decoded
 bytes in `packet.raw_tnc2_base64` are the authoritative compatibility boundary.
@@ -88,7 +89,7 @@ npm test
 ```
 
 The suite compiles the schema with AJV in strict Draft 2020-12 mode and format
-validation enabled. It currently exercises 12 positive and 14 negative
+validation enabled. It currently exercises 14 positive and 17 negative
 vectors. Semantic checks include Base64 byte equality, APRS compressed position
 decoding, DTI offsets, RXT tuple decoding, event identity rules, malformed
 packet transport, version rejection, and TX lifecycle constraints.

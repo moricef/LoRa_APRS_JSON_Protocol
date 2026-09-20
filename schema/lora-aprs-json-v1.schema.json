@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/moricef/LoRa_APRS_iGate/blob/feature/rxt-integration/docs/schema/lora-aprs-json-v1.schema.json",
+  "$id": "https://raw.githubusercontent.com/moricef/LoRa_APRS_JSON_Protocol/main/schema/lora-aprs-json-v1.schema.json",
   "title": "LoRa APRS JSON Event Protocol 1.0",
   "oneOf": [
     { "$ref": "#/$defs/helloEvent" },
@@ -103,6 +103,25 @@
             "required": ["tx_status_ttl_ms"],
             "properties": {
               "tx_status_ttl_ms": { "type": "integer", "minimum": 1000 }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "features": {
+                "type": "array",
+                "contains": { "const": "history_resume" }
+              }
+            },
+            "required": ["features"]
+          },
+          "then": {
+            "type": "object",
+            "required": ["history_events"],
+            "properties": {
+              "history_events": { "type": "integer", "minimum": 1 }
             }
           }
         }
@@ -333,7 +352,7 @@
       "type": "object",
       "properties": {
         "frequency_hz": { "type": "integer", "minimum": 0 },
-        "bandwidth_hz": { "type": "integer", "minimum": 0 },
+        "bandwidth_hz": { "type": "integer", "minimum": 1 },
         "spreading_factor": {
           "type": "integer",
           "minimum": 5,
@@ -352,10 +371,10 @@
         "rx": { "type": "string", "minLength": 1 },
         "identity_status": { "enum": ["resolved", "unresolved"] },
         "has_data": { "type": "boolean" },
-        "rssi_dbm": { "type": "number" },
+        "rssi_dbm": { "type": "integer" },
         "snr_db": { "type": "number" },
-        "frequency_error_hz": { "type": "number" },
-        "tth_ms": { "type": "number", "minimum": 0 },
+        "frequency_error_hz": { "type": "integer" },
+        "tth_ms": { "type": "integer", "minimum": 0 },
         "rssi_clipped": { "type": "boolean" },
         "snr_clipped": { "type": "boolean" },
         "frequency_error_clipped": { "type": "boolean" }
@@ -386,10 +405,10 @@
             "type": "object",
             "required": ["rssi_dbm", "snr_db", "frequency_error_hz", "tth_ms"],
             "properties": {
-              "rssi_dbm": { "type": "number" },
+              "rssi_dbm": { "type": "integer" },
               "snr_db": { "type": "number" },
-              "frequency_error_hz": { "type": "number" },
-              "tth_ms": { "type": "number" }
+              "frequency_error_hz": { "type": "integer" },
+              "tth_ms": { "type": "integer" }
             }
           },
           "else": {
@@ -409,8 +428,9 @@
     },
     "rxt": {
       "type": "object",
-      "required": ["raw", "hops"],
+      "required": ["encoding", "raw", "hops"],
       "properties": {
+        "encoding": { "const": "rxt-v1" },
         "raw": {
           "type": "string",
           "pattern": "^(?:[!-z]{4}){1,3}$"
@@ -431,6 +451,33 @@
         "rxt": { "$ref": "#/$defs/rxt" },
         "crc_valid": { "const": true }
       },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "rxt": { "type": "object" } },
+            "required": ["rxt"]
+          },
+          "then": {
+            "type": "object",
+            "required": ["radio"],
+            "properties": {
+              "radio": {
+                "type": "object",
+                "required": ["bandwidth_hz", "spreading_factor"],
+                "properties": {
+                  "bandwidth_hz": { "type": "integer", "minimum": 1 },
+                  "spreading_factor": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 12
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
       "additionalProperties": true
     },
     "rxEvent": {
