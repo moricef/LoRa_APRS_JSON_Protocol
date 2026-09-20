@@ -283,6 +283,12 @@ const alphanumericAddress = events.find((event) => event.packet?.source?.suffix 
 assert.ok(alphanumericAddress, "missing alphanumeric address suffix vector");
 const nonAprsRxt = events.find((event) => event.packet?.aprs === undefined && event.reception?.rxt);
 assert.ok(nonAprsRxt, "missing non-APRS RXT vector");
+const mixedLegacyRxt = events.find((event) => {
+  const hops = event.reception?.rxt?.hops ?? [];
+  return hops.some((hop) => hop.has_data === false) &&
+    hops.some((hop) => hop.has_data === true);
+});
+assert.ok(mixedLegacyRxt, "missing mixed legacy/RXT hop vector");
 
 function changed(source, update) {
   return Object.assign(structuredClone(source), update);
