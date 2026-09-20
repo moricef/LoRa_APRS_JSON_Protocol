@@ -166,9 +166,54 @@ function checkProducerStreamEvent(event, label) {
   assert.ok(Number.isInteger(event.uptime_ms), `${label}: missing producer uptime_ms`);
 }
 
+function checkOrderedRxStream(records, label) {
+  assert.equal(records[0]?.event, "hello", `${label}: stream must start with hello`);
+  const hello = records[0];
+  const receptions = records.filter((record) => record.event === "rx");
+  const eventIds = new Set();
+  let previousSequence = hello.latest_sequence;
+  let previousUptime = hello.uptime_ms;
+  for (const [index, reception] of receptions.entries()) {
+    assert.equal(reception.boot_id, hello.boot_id, `${label}: rx ${index + 1} changed boot_id`);
+    assert.equal(
+      reception.sequence,
+      previousSequence + 1,
+      `${label}: rx ${index + 1} is not the next sequence`,
+    );
+    assert.equal(
+      eventIds.has(reception.event_id),
+      false,
+      `${label}: rx ${index + 1} reused event_id`,
+    );
+    assert.ok(
+      reception.uptime_ms >= previousUptime,
+      `${label}: rx ${index + 1} moved uptime backwards`,
+    );
+    eventIds.add(reception.event_id);
+    previousSequence = reception.sequence;
+    previousUptime = reception.uptime_ms;
+  }
+}
+
+function checkTxQueueable(event, label) {
+  assert.equal(event.event, "tx_request", `${label}: not a TX request`);
+  const raw = decodedBase64(event.packet.raw_tnc2_base64, `${label}.packet.raw_tnc2_base64`);
+  assert.equal(raw.includes(0x0a), false, `${label}: embedded LF`);
+  assert.equal(raw.includes(0x0d), false, `${label}: embedded CR`);
+  const separator = raw.indexOf(0x3a);
+  const addressSeparator = raw.indexOf(0x3e);
+  assert.ok(addressSeparator > 0, `${label}: missing TNC2 source separator`);
+  assert.ok(separator > addressSeparator + 1, `${label}: missing TNC2 destination or data separator`);
+}
+
 const stream = readNdjson("examples/lora-aprs-json-stream.ndjson");
+const sequenceStream = readNdjson("examples/lora-aprs-json-sequence-stream.ndjson");
 const events = readNdjson("examples/lora-aprs-json-vectors.ndjson");
-for (const [file, records] of [["stream", stream], ["events", events]]) {
+for (const [file, records] of [
+  ["stream", stream],
+  ["sequence-stream", sequenceStream],
+  ["events", events],
+]) {
   records.forEach((record, index) => {
     const label = `${file}:${index + 1}`;
     schemaValid(record, label);
@@ -177,6 +222,8 @@ for (const [file, records] of [["stream", stream], ["events", events]]) {
 }
 
 assert.equal(stream[0].event, "hello", "stream must start with hello");
+checkOrderedRxStream(stream, "stream");
+checkOrderedRxStream(sequenceStream, "sequence-stream");
 const byType = Object.fromEntries(events.map((event) => [event.event, event]));
 for (const type of ["hello", "rx", "heartbeat", "gap", "error", "tx_request", "tx_result"]) {
   assert.ok(byType[type], `missing positive vector for ${type}`);
@@ -217,9 +264,33 @@ schemaInvalid(nullMetric, "null metric");
 const failedWithoutReason = changed(byType.tx_result, { status: "failed" });
 schemaInvalid(failedWithoutReason, "failed TX without reason");
 
+const rejectedWithoutCode = changed(byType.tx_result, {
+  status: "rejected",
+  reason: "Packet cannot be transmitted",
+});
+schemaInvalid(rejectedWithoutCode, "rejected TX without code");
+
+const rejectedInvalidPacket = changed(byType.tx_result, {
+  status: "rejected",
+  code: "invalid_packet",
+  reason: "Packet is not a usable TNC2 frame",
+});
+schemaValid(rejectedInvalidPacket, "rejected invalid TX packet");
+
 const mismatchedTxText = structuredClone(byType.tx_request);
 mismatchedTxText.packet.tnc2 = "N0CALL>APRS:>Different bytes";
 semanticInvalid(() => checkPacketCopies(mismatchedTxText, "mismatched TX text"), "mismatched TX text");
+checkTxQueueable(byType.tx_request, "valid TX request");
+
+const invalidTxPacket = structuredClone(byType.tx_request);
+invalidTxPacket.packet = {
+  raw_tnc2_base64: Buffer.from("THIS IS NOT TNC2", "utf8").toString("base64"),
+};
+assert.ok(validate(invalidTxPacket), `invalid TX packet envelope: ${ajv.errorsText(validate.errors)}`);
+semanticInvalid(
+  () => checkTxQueueable(invalidTxPacket, "invalid TX packet"),
+  "syntactically unusable TX packet",
+);
 
 const terminalTx = changed(byType.tx_result, { status: "sent" });
 schemaValid(terminalTx, "terminal TX result");
@@ -254,6 +325,21 @@ checkProducerStreamEvent(serverError, "producer stream error");
 semanticInvalid(
   () => checkProducerStreamEvent(byType.error, "producer stream error without uptime"),
   "producer stream error without uptime",
+);
+
+const sequenceGap = structuredClone(sequenceStream);
+sequenceGap[2].sequence = 3;
+semanticInvalid(() => checkOrderedRxStream(sequenceGap, "sequence gap"), "RX sequence gap");
+
+const reusedEventId = structuredClone(sequenceStream);
+reusedEventId[2].event_id = reusedEventId[1].event_id;
+semanticInvalid(() => checkOrderedRxStream(reusedEventId, "reused event ID"), "reused RX event ID");
+
+const outOfOrderReplay = structuredClone(sequenceStream);
+[outOfOrderReplay[2], outOfOrderReplay[3]] = [outOfOrderReplay[3], outOfOrderReplay[2]];
+semanticInvalid(
+  () => checkOrderedRxStream(outOfOrderReplay, "out-of-order replay"),
+  "out-of-order RX replay",
 );
 
 console.log(`validated ${positiveCount} positive and ${negativeCount} negative vectors`);

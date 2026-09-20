@@ -15,11 +15,12 @@ npm test
 ```
 
 The validator compiles the schema as JSON Schema 2020-12 with AJV strict mode
-and format validation enabled. It currently checks 14 positive and 18 negative
+and format validation enabled. It currently checks 19 positive and 23 negative
 vectors, including every declared event type.
 
-The executable validator is `validate_protocol.cjs`. The stream example and
-the independent event vectors are described separately in `examples/README.md`.
+The executable validator is `validate_protocol.cjs`. The coherent single- and
+multi-reception stream examples and the independent event vectors are
+described separately in `examples/README.md`.
 
 The checks cover:
 
@@ -30,10 +31,13 @@ The checks cover:
 - RXT tuple count, order and metric decoding at the declared SF/BW;
 - exact RF packet reconstruction from the clean packet and RXT trailer;
 - exact equality of binary and text representations in TX requests;
+- pre-queue rejection of a syntactically unusable TNC2 transmission and a
+  stable machine-readable rejection code;
 - control events without reception sequence identities;
 - producer-originated error identity and uptime requirements;
 - capability requirements for history resume;
-- reception sequence starting at 1;
+- reception sequence starting at 1, exact continuity, ascending stream order,
+  unique event identifiers, stable boot identity and monotonic uptime;
 - UTC timestamps, invalid Base64, unknown events and invalid APRS warnings;
 - transport of a malformed packet using only its authoritative raw bytes;
 - tolerance of unknown optional object members.

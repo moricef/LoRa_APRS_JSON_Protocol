@@ -37,6 +37,8 @@ RXT traffic. See [VALIDATION.md](VALIDATION.md) for the detailed status.
   JSON Schema Draft 2020-12 for schema version 1.0.
 - [examples/lora-aprs-json-stream.ndjson](examples/lora-aprs-json-stream.ndjson)
   — one coherent producer-to-client stream.
+- [examples/lora-aprs-json-sequence-stream.ndjson](examples/lora-aprs-json-sequence-stream.ndjson)
+  — a coherent multi-reception stream used to validate ordering and identity.
 - [examples/lora-aprs-json-vectors.ndjson](examples/lora-aprs-json-vectors.ndjson)
   — independent positive vectors covering every event type.
 - [examples/README.md](examples/README.md) — distinction between stream examples
@@ -89,17 +91,20 @@ npm test
 ```
 
 The suite compiles the schema with AJV in strict Draft 2020-12 mode and format
-validation enabled. It currently exercises 14 positive and 18 negative
+validation enabled. It currently exercises 19 positive and 23 negative
 vectors. Semantic checks include Base64 byte equality, APRS compressed position
-decoding, DTI offsets, RXT tuple decoding, event identity rules, malformed
-packet transport, version rejection, and TX lifecycle constraints.
+decoding, DTI offsets, RXT tuple decoding, multi-reception sequence continuity
+and identity, malformed packet transport, version rejection, and pre-queue TX
+validation and lifecycle constraints.
 
 ## Optional transmission
 
 Transmission is disabled unless explicitly configured and authenticated.
 Clients submit `tx_request` data with `POST /api/v1/aprs/tx` and obtain the
 latest result with `GET /api/v1/aprs/tx/{request_id}`. Request identifiers are
-idempotent within an authenticated client scope.
+idempotent within an authenticated client scope. Packets that are invalid or
+unsupported by the configured transport are rejected before queueing with a
+stable machine-readable result code.
 
 Implementations must also enforce authorization, rate limits, radio duty-cycle
 rules, bounded queues, record-size limits, and safe handling of untrusted text.

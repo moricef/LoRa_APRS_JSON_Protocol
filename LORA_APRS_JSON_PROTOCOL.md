@@ -422,15 +422,27 @@ Transmission is disabled unless explicitly configured.
     }
 
 tx_result repeats request_id and reports queued, sent, rejected or failed.
-reason is required for rejected and failed. tx_result is returned by the TX
-HTTP endpoints; it is not inserted into the APRS receive stream and is not a
-replayable reception event. RXT MUST NOT be appended because client-originated
-traffic has no RF receive context.
+code and reason are required for rejected and failed. code is a stable,
+machine-readable lower-case identifier; reason is human-readable. The standard
+pre-queue rejection codes are invalid_packet for an invalid TNC2/APRS envelope
+and unsupported_packet for a packet the configured transport cannot emit.
+Implementations MAY define additional codes using the schema's naming pattern.
+tx_result is returned by the TX HTTP endpoints; it is not inserted into the
+APRS receive stream and is not a replayable reception event. RXT MUST NOT be
+appended because client-originated traffic has no RF receive context.
 
 tx_request.packet.raw_tnc2_base64 is authoritative for transmission. When
 tx_request.packet.tnc2 is present, the decoded raw_tnc2_base64 bytes MUST equal
 the UTF-8 encoding of tnc2 exactly. A producer MUST reject a request when the
 two representations differ.
+
+Before queueing, the producer MUST validate that the authoritative packet
+bytes form a usable TNC2 packet and can be transmitted by the configured
+APRS/radio transport. At minimum, a TNC2 packet has a non-empty source before
+`>`, a non-empty destination/path portion between `>` and the first `:`, and no
+embedded CR or LF. This validation does not require the producer to understand
+every APRS DTI. Invalid or unsupported packets MUST NOT be queued and MUST
+produce a rejected tx_result with an appropriate stable code and reason.
 
 ## 9. HTTP transports
 
@@ -492,8 +504,10 @@ Optional transmission:
     POST /api/v1/aprs/tx
     Content-Type: application/json
 
-Success returns HTTP 202 and an initial queued tx_result. Remote access
-requires authentication and transport security.
+Success returns HTTP 202 and an initial queued tx_result. A syntactically
+invalid or transport-unsupported packet returns HTTP 422 with a rejected
+tx_result and MUST NOT enter the transmission queue. Remote access requires
+authentication and transport security.
 
 Final transmission state is obtained with:
 

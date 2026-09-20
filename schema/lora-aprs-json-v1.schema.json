@@ -600,6 +600,10 @@
             "status": {
               "enum": ["queued", "sent", "rejected", "failed"]
             },
+            "code": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
             "reason": { "type": "string" }
           }
         },
@@ -613,8 +617,12 @@
           },
           "then": {
             "type": "object",
-            "required": ["reason"],
+            "required": ["code", "reason"],
             "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+              },
               "reason": { "type": "string", "minLength": 1 }
             }
           }
