@@ -5,9 +5,9 @@ LoRa reception metadata from a receiver, iGate, or digipeater to applications
 such as mapping clients, diagnostic tools, and station software.
 
 The protocol uses newline-delimited JSON (NDJSON) over HTTP. It preserves the
-exact received packet bytes while exposing optional parsed APRS data and
-receiver-specific metadata such as local radio measurements and an RXT relay
-chain.
+exact clean APRS/TNC2 packet bytes, including binary Mic-E information, while
+exposing optional parsed APRS data and preserving RF-only RXT metadata
+separately.
 
 ## Status
 
@@ -20,7 +20,8 @@ RXT traffic. See [VALIDATION.md](VALIDATION.md) for the detailed status.
 
 ## Design goals
 
-- Preserve every received packet byte, including binary Mic-E information.
+- Preserve the exact clean APRS/TNC2 packet bytes, including binary Mic-E
+  information, while preserving RF-only RXT metadata separately.
 - Keep station identities as strings without imposing the AX.25 SSID 0–15
   limit on application data.
 - Transport malformed, unsupported, and future APRS content without loss.
@@ -45,6 +46,8 @@ RXT traffic. See [VALIDATION.md](VALIDATION.md) for the detailed status.
   and independent vectors.
 - [validate_protocol.cjs](validate_protocol.cjs) — executable schema and
   semantic validation suite.
+- [package-lock.json](package-lock.json) — exact dependency graph used for
+  reproducible validator installation with `npm ci`.
 
 ## Event model
 
@@ -86,7 +89,7 @@ Requirements:
 Install the development dependencies and run the validator:
 
 ```sh
-npm install
+npm ci
 npm test
 ```
 

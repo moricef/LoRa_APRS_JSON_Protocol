@@ -12,10 +12,10 @@ vectors covering every event type. It is not a chronological stream: records
 from both protocol directions are adjacent, and sequence/history values on one
 line do not establish state for another line.
 
-Both files are consumed by `../validate_protocol.cjs`. From the repository
+All three files are consumed by `../validate_protocol.cjs`. From the repository
 root, install the declared development dependencies and run:
 
 ```sh
-npm install
+npm ci
 npm test
 ```

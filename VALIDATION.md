@@ -10,7 +10,7 @@ event model. It is not yet validated as a deployed interoperability standard.
 Run:
 
 ```sh
-npm install
+npm ci
 npm test
 ```
 
@@ -44,6 +44,9 @@ The checks cover:
 
 The APRS checks were reviewed against APRS Protocol Reference 1.2c. The RXT
 checks use the normative `rxt-v1` equations in the protocol specification.
+The multi-reception fixture models a fresh live stream. It validates general
+ordering invariants but does not simulate the history/resume exchange or prove
+replay behavior.
 
 ## Corrections made during audit
 
@@ -76,4 +79,5 @@ Before declaring version 1.0 production-proven, complete these steps:
 
 `packet.aprs.decoded` remains optional convenience data and deliberately open.
 The schema validates its common envelope, not every APRS 1.2c subtype. Exact
-raw packet bytes are the normative compatibility boundary.
+clean packet bytes are the normative compatibility boundary; a complete RF
+copy is optional.

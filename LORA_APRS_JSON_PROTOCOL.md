@@ -15,11 +15,13 @@ need more information than a KISS or TNC2 connection can provide.
 
 The protocol does not redefine APRS. APRS decoding follows the APRS Protocol
 Reference 1.2c. JSON exposes decoded values for convenience while retaining
-an exact copy of every received packet.
+an exact copy of the clean APRS/TNC2 packet and representing RF-only RXT
+metadata separately.
 
 The design has four mandatory properties:
 
-1. Packets can be recovered without loss, including binary Mic-E data.
+1. Clean APRS/TNC2 packet bytes can be recovered without loss, including
+   binary Mic-E data; RF-only RXT metadata remains separate.
 2. Station identities are strings and are not restricted to AX.25 SSIDs 0–15.
 3. APRS content and receiver-specific LoRa/RXT metadata remain separate.
 4. Unknown, malformed and future APRS formats remain transportable.
@@ -49,7 +51,7 @@ the consumer into a later schema version; Section 11 defines version handling.
   complete address remains available in text for implementations whose native
   integer range is narrower than an incoming value.
 
-### Exact packet preservation
+### Exact clean packet preservation
 
 packet.raw_tnc2_base64 is authoritative: it contains the exact clean TNC2-form
 packet bytes without trailing CR or LF. It is required on every rx event. Its
@@ -69,11 +71,13 @@ on a validator which has format checking disabled.
 
 The RF-only RXT trailer is stored separately in reception.rxt.raw. The clean
 packet does not contain it. packet.rf_tnc2_base64 MAY preserve the exact RF
-form including the trailer. When rf_tnc2_base64 and reception.rxt are both
-present, the decoded RF bytes MUST equal the decoded raw_tnc2_base64 bytes,
-followed immediately by ASCII `{`, the ASCII bytes of reception.rxt.raw, and
-ASCII `}`. When rf_tnc2_base64 is present without reception.rxt, its decoded
-bytes MUST equal raw_tnc2_base64 exactly.
+form including the trailer; complete RF byte preservation is therefore an
+optional capability, not a guarantee for every rx event. When
+rf_tnc2_base64 and reception.rxt are both present, the decoded RF bytes MUST
+equal the decoded raw_tnc2_base64 bytes, followed immediately by ASCII `{`,
+the ASCII bytes of reception.rxt.raw, and ASCII `}`. When rf_tnc2_base64 is
+present without reception.rxt, its decoded bytes MUST equal raw_tnc2_base64
+exactly.
 
 ## 4. Event envelope and identity
 
@@ -540,7 +544,7 @@ within protocol version 1 MUST ignore unknown object members. A new event name
 or closed-enum value requires a new schema_version; a consumer that does not
 support that schema MUST skip the unknown record or fail cleanly, never
 reinterpret it. Removing or reinterpreting a member requires a new protocol
-version. Exact raw bytes remain the compatibility boundary.
+version. Exact clean packet bytes remain the compatibility boundary.
 
 Ignoring unknown members applies only to records whose schema_version the
 consumer explicitly supports. It does not imply that a consumer supporting
