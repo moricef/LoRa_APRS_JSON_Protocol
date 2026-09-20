@@ -1,0 +1,11 @@
+{
+  "name": "lora-aprs-json-protocol",
+  "private": true,
+  "scripts": {
+    "test": "node validate_protocol.cjs"
+  },
+  "devDependencies": {
+    "ajv": "8.18.0",
+    "ajv-formats": "3.0.1"
+  }
+}

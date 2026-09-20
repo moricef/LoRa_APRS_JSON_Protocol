@@ -1,0 +1,578 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/moricef/LoRa_APRS_iGate/blob/feature/rxt-integration/docs/schema/lora-aprs-json-v1.schema.json",
+  "title": "LoRa APRS JSON Event Protocol 1.0",
+  "oneOf": [
+    { "$ref": "#/$defs/helloEvent" },
+    { "$ref": "#/$defs/rxEvent" },
+    { "$ref": "#/$defs/heartbeatEvent" },
+    { "$ref": "#/$defs/gapEvent" },
+    { "$ref": "#/$defs/errorEvent" },
+    { "$ref": "#/$defs/txRequest" },
+    { "$ref": "#/$defs/txResult" }
+  ],
+  "$defs": {
+    "baseEvent": {
+      "type": "object",
+      "required": ["protocol", "protocol_version", "schema_version", "event"],
+      "properties": {
+        "protocol": { "const": "lora-aprs-json" },
+        "protocol_version": { "const": "1" },
+        "schema_version": { "const": "1.0" },
+        "event": { "type": "string" },
+        "event_id": { "type": "string", "minLength": 1 },
+        "boot_id": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "uptime_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "receptionEventFields": {
+      "type": "object",
+      "required": ["event_id", "boot_id", "sequence", "uptime_ms"]
+    },
+    "producerControlFields": {
+      "type": "object",
+      "required": ["boot_id", "uptime_ms"]
+    },
+    "noReceptionIdentity": {
+      "not": {
+        "anyOf": [
+          { "type": "object", "required": ["event_id"] },
+          { "type": "object", "required": ["sequence"] }
+        ]
+      }
+    },
+    "base64": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    },
+    "producer": {
+      "type": "object",
+      "required": ["station", "software"],
+      "properties": {
+        "station": { "type": "string", "minLength": 1 },
+        "software": { "type": "string", "minLength": 1 },
+        "firmware": { "type": "string" },
+        "hardware": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "capabilities": {
+      "type": "object",
+      "required": ["events", "features", "transports"],
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "transports": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "history_events": { "type": "integer", "minimum": 0 },
+        "max_record_bytes": { "type": "integer", "minimum": 256 },
+        "tx_status_ttl_ms": { "type": "integer", "minimum": 1000 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "features": {
+                "type": "array",
+                "contains": { "const": "tx" }
+              }
+            },
+            "required": ["features"]
+          },
+          "then": {
+            "type": "object",
+            "required": ["tx_status_ttl_ms"],
+            "properties": {
+              "tx_status_ttl_ms": { "type": "integer", "minimum": 1000 }
+            }
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "helloEvent": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEvent" },
+        { "$ref": "#/$defs/producerControlFields" },
+        { "$ref": "#/$defs/noReceptionIdentity" },
+        {
+          "type": "object",
+          "required": ["producer", "capabilities", "latest_sequence"],
+          "properties": {
+            "event": { "const": "hello" },
+            "producer": { "$ref": "#/$defs/producer" },
+            "capabilities": { "$ref": "#/$defs/capabilities" },
+            "latest_sequence": { "type": "integer", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "receiver": {
+      "type": "object",
+      "required": ["station"],
+      "properties": {
+        "station": { "type": "string", "minLength": 1 },
+        "interface": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "address": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "call": { "type": "string", "minLength": 1 },
+        "ssid": { "type": "integer", "minimum": 0 },
+        "repeated": { "type": "boolean" },
+        "kind": {
+          "enum": ["station", "alias", "internet", "q_construct", "unknown"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "information": {
+      "type": "object",
+      "required": ["raw_base64"],
+      "properties": {
+        "raw_base64": { "$ref": "#/$defs/base64" },
+        "text": { "type": "string" },
+        "dti": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1,
+          "pattern": "^[\\u001c\\u001d\\x20-\\x7e]$"
+        },
+        "dti_hex": { "type": "string", "pattern": "^[0-9a-fA-F]{2}$" },
+        "dti_offset": { "type": "integer", "minimum": 0 }
+      },
+      "dependentRequired": {
+        "dti": ["dti_hex"],
+        "dti_offset": ["dti_hex"]
+      },
+      "additionalProperties": true
+    },
+    "symbol": {
+      "type": "object",
+      "required": ["table", "code"],
+      "properties": {
+        "table": { "type": "string", "minLength": 1, "maxLength": 1 },
+        "code": { "type": "string", "minLength": 1, "maxLength": 1 },
+        "overlay": { "type": "string", "minLength": 1, "maxLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "timestamp": {
+      "type": "object",
+      "required": ["raw", "kind"],
+      "properties": {
+        "raw": { "type": "string" },
+        "kind": { "enum": ["dhm", "hms", "mdhm", "unknown"] },
+        "utc": { "type": "boolean" },
+        "resolved_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        }
+      },
+      "additionalProperties": true
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "enum": ["uncompressed", "compressed", "mic_e", "nmea", "maidenhead"]
+        },
+        "messaging_capable": { "type": "boolean" },
+        "latitude_deg": { "type": "number", "minimum": -90, "maximum": 90 },
+        "longitude_deg": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "ambiguity_digits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "symbol": { "$ref": "#/$defs/symbol" },
+        "timestamp": { "$ref": "#/$defs/timestamp" },
+        "altitude_m": { "type": "number" },
+        "course_deg": { "type": "number", "minimum": 0, "maximum": 360 },
+        "speed_mps": { "type": "number", "minimum": 0 },
+        "comment": { "type": "string" },
+        "dao": { "type": "object", "additionalProperties": true },
+        "extensions": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "aprsDecoded": {
+      "type": "object",
+      "required": ["type", "valid"],
+      "properties": {
+        "type": {
+          "enum": [
+            "position",
+            "mic_e",
+            "object",
+            "item",
+            "weather",
+            "telemetry",
+            "message",
+            "query",
+            "status",
+            "capabilities",
+            "direction_finding",
+            "raw_gps",
+            "third_party",
+            "user_defined",
+            "test",
+            "other",
+            "unsupported",
+            "invalid"
+          ]
+        },
+        "valid": { "type": "boolean" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "decoded": { "type": "object", "additionalProperties": true }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "valid": { "const": false } },
+            "required": ["valid"]
+          },
+          "then": {
+            "type": "object",
+            "required": ["warnings"],
+            "properties": { "warnings": { "type": "array", "minItems": 1 } }
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "packet": {
+      "type": "object",
+      "required": ["raw_tnc2_base64", "parse_status"],
+      "properties": {
+        "raw_tnc2_base64": {
+          "allOf": [
+            { "$ref": "#/$defs/base64" },
+            { "type": "string", "minLength": 4 }
+          ]
+        },
+        "rf_tnc2_base64": { "$ref": "#/$defs/base64" },
+        "tnc2": { "type": "string" },
+        "parse_status": { "enum": ["parsed", "malformed", "unsupported"] },
+        "source": { "$ref": "#/$defs/address" },
+        "destination": { "$ref": "#/$defs/address" },
+        "path": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/address" }
+        },
+        "information": { "$ref": "#/$defs/information" },
+        "aprs": { "$ref": "#/$defs/aprsDecoded" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "parse_status": { "const": "parsed" } },
+            "required": ["parse_status"]
+          },
+          "then": {
+            "type": "object",
+            "required": ["source", "destination", "path", "information"],
+            "properties": {
+              "source": { "$ref": "#/$defs/address" },
+              "destination": { "$ref": "#/$defs/address" },
+              "path": { "type": "array" },
+              "information": { "$ref": "#/$defs/information" }
+            }
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "localMetrics": {
+      "type": "object",
+      "properties": {
+        "rssi_dbm": { "type": "number" },
+        "snr_db": { "type": "number" },
+        "frequency_error_hz": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "radio": {
+      "type": "object",
+      "properties": {
+        "frequency_hz": { "type": "integer", "minimum": 0 },
+        "bandwidth_hz": { "type": "integer", "minimum": 0 },
+        "spreading_factor": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 12
+        },
+        "coding_rate": { "enum": ["4/5", "4/6", "4/7", "4/8"] }
+      },
+      "additionalProperties": true
+    },
+    "rxtHop": {
+      "type": "object",
+      "required": ["ordinal", "identity_status", "has_data"],
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 1 },
+        "tx": { "type": "string", "minLength": 1 },
+        "rx": { "type": "string", "minLength": 1 },
+        "identity_status": { "enum": ["resolved", "unresolved"] },
+        "has_data": { "type": "boolean" },
+        "rssi_dbm": { "type": "number" },
+        "snr_db": { "type": "number" },
+        "frequency_error_hz": { "type": "number" },
+        "tth_ms": { "type": "number", "minimum": 0 },
+        "rssi_clipped": { "type": "boolean" },
+        "snr_clipped": { "type": "boolean" },
+        "frequency_error_clipped": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "identity_status": { "const": "resolved" } },
+            "required": ["identity_status"]
+          },
+          "then": {
+            "type": "object",
+            "required": ["tx", "rx"],
+            "properties": {
+              "tx": { "type": "string" },
+              "rx": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "has_data": { "const": true } },
+            "required": ["has_data"]
+          },
+          "then": {
+            "type": "object",
+            "required": ["rssi_dbm", "snr_db", "frequency_error_hz", "tth_ms"],
+            "properties": {
+              "rssi_dbm": { "type": "number" },
+              "snr_db": { "type": "number" },
+              "frequency_error_hz": { "type": "number" },
+              "tth_ms": { "type": "number" }
+            }
+          },
+          "else": {
+            "type": "object",
+            "not": {
+              "anyOf": [
+                { "type": "object", "required": ["rssi_dbm"] },
+                { "type": "object", "required": ["snr_db"] },
+                { "type": "object", "required": ["frequency_error_hz"] },
+                { "type": "object", "required": ["tth_ms"] }
+              ]
+            }
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "rxt": {
+      "type": "object",
+      "required": ["raw", "hops"],
+      "properties": {
+        "raw": {
+          "type": "string",
+          "pattern": "^(?:[!-z]{4}){1,3}$"
+        },
+        "hops": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/rxtHop" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "reception": {
+      "type": "object",
+      "properties": {
+        "local": { "$ref": "#/$defs/localMetrics" },
+        "radio": { "$ref": "#/$defs/radio" },
+        "rxt": { "$ref": "#/$defs/rxt" },
+        "crc_valid": { "const": true }
+      },
+      "additionalProperties": true
+    },
+    "rxEvent": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEvent" },
+        { "$ref": "#/$defs/receptionEventFields" },
+        {
+          "type": "object",
+          "required": ["receiver", "packet", "reception"],
+          "properties": {
+            "event": { "const": "rx" },
+            "receiver": { "$ref": "#/$defs/receiver" },
+            "packet": { "$ref": "#/$defs/packet" },
+            "reception": { "$ref": "#/$defs/reception" }
+          }
+        }
+      ]
+    },
+    "heartbeatEvent": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEvent" },
+        { "$ref": "#/$defs/producerControlFields" },
+        { "$ref": "#/$defs/noReceptionIdentity" },
+        {
+          "type": "object",
+          "required": ["latest_sequence", "time_synchronized"],
+          "properties": {
+            "event": { "const": "heartbeat" },
+            "latest_sequence": { "type": "integer", "minimum": 0 },
+            "time_synchronized": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "gapEvent": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEvent" },
+        { "$ref": "#/$defs/producerControlFields" },
+        { "$ref": "#/$defs/noReceptionIdentity" },
+        {
+          "type": "object",
+          "required": ["requested_after", "reason"],
+          "properties": {
+            "event": { "const": "gap" },
+            "requested_after": { "type": "string" },
+            "oldest_available": { "type": "string" },
+            "latest_available": { "type": "string" },
+            "reason": {
+              "enum": ["history_expired", "different_boot", "unknown_event"]
+            }
+          }
+        }
+      ]
+    },
+    "errorEvent": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEvent" },
+        { "$ref": "#/$defs/noReceptionIdentity" },
+        {
+          "type": "object",
+          "required": ["code", "message", "recoverable"],
+          "properties": {
+            "event": { "const": "error" },
+            "code": { "type": "string", "minLength": 1 },
+            "message": { "type": "string" },
+            "recoverable": { "type": "boolean" },
+            "related_event_id": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "txPacket": {
+      "type": "object",
+      "required": ["raw_tnc2_base64"],
+      "properties": {
+        "raw_tnc2_base64": {
+          "allOf": [
+            { "$ref": "#/$defs/base64" },
+            { "type": "string", "minLength": 4 }
+          ]
+        },
+        "tnc2": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "txRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEvent" },
+        { "$ref": "#/$defs/noReceptionIdentity" },
+        {
+          "type": "object",
+          "required": ["request_id", "packet"],
+          "properties": {
+            "event": { "const": "tx_request" },
+            "request_id": { "type": "string", "minLength": 1 },
+            "packet": { "$ref": "#/$defs/txPacket" },
+            "options": {
+              "type": "object",
+              "properties": {
+                "append_rxt": { "const": false },
+                "priority": { "enum": ["low", "normal", "high"] }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "txResult": {
+      "allOf": [
+        { "$ref": "#/$defs/baseEvent" },
+        { "$ref": "#/$defs/producerControlFields" },
+        { "$ref": "#/$defs/noReceptionIdentity" },
+        {
+          "type": "object",
+          "required": ["request_id", "status"],
+          "properties": {
+            "event": { "const": "tx_result" },
+            "request_id": { "type": "string", "minLength": 1 },
+            "status": {
+              "enum": ["queued", "sent", "rejected", "failed"]
+            },
+            "reason": { "type": "string" }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "status": { "enum": ["rejected", "failed"] }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "type": "object",
+            "required": ["reason"],
+            "properties": {
+              "reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
