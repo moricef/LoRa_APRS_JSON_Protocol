@@ -15,8 +15,11 @@ npm test
 ```
 
 The validator compiles the schema as JSON Schema 2020-12 with AJV strict mode
-and format validation enabled. It currently checks 12 positive and 13 negative
+and format validation enabled. It currently checks 12 positive and 14 negative
 vectors, including every declared event type.
+
+The executable validator is `validate_protocol.cjs`. The stream example and
+the independent event vectors are described separately in `examples/README.md`.
 
 The checks cover:
 
@@ -39,7 +42,8 @@ checks use the encoding equations implemented by LoRa_APRS_iGate.
 - `hello`, `heartbeat` and `gap` no longer consume the reception sequence.
 - Resume ordering now has an atomic history/live boundary.
 - A malformed packet no longer needs fabricated parsed addresses.
-- `parse_status` makes parsed, malformed and unsupported input explicit.
+- `parse_status` distinguishes a parsed TNC2 envelope from malformed input;
+  unsupported APRS decoding remains `packet.aprs.type=unsupported`.
 - Canonical Base64 is enforced rather than merely annotated.
 - Protocol compatibility and exact schema revision have separate fields.
 - Unavailable values are omitted; schema 1.0 does not use null.

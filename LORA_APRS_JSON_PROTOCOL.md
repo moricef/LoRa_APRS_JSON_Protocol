@@ -192,11 +192,13 @@ validation. Repeated copies of identical APRS content are distinct events.
 
 Path kind is station, alias, internet, q_construct or unknown. Parsed address
 members are hints; text is authoritative. raw_tnc2_base64 and parse_status are
-the only unconditional packet members. parse_status is parsed, malformed or
-unsupported. With parsed, the producer MUST also emit source, destination,
-path and information. With malformed or unsupported, it MAY emit partial
-members but MUST NOT invent values merely to satisfy the schema.
-information.raw_base64 is mandatory whenever information is present.
+the only unconditional packet members. parse_status is parsed or malformed.
+With parsed, the producer MUST also emit source, destination, path and
+information. With malformed, it MAY emit partial members but MUST NOT invent
+values merely to satisfy the schema. A recognizable APRS form which the
+producer cannot decode is still a parsed packet and uses
+packet.aprs.type=unsupported. information.raw_base64 is mandatory whenever
+information is present.
 
 dti_hex identifies the detected one-byte DTI and dti is its JSON text form
 when representable. dti_offset is its zero-based byte position in information

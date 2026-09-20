@@ -289,7 +289,7 @@
         },
         "rf_tnc2_base64": { "$ref": "#/$defs/base64" },
         "tnc2": { "type": "string" },
-        "parse_status": { "enum": ["parsed", "malformed", "unsupported"] },
+        "parse_status": { "enum": ["parsed", "malformed"] },
         "source": { "$ref": "#/$defs/address" },
         "destination": { "$ref": "#/$defs/address" },
         "path": {

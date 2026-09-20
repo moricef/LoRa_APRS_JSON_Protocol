@@ -139,7 +139,7 @@ function checkPacketCopies(event, label) {
 }
 
 const stream = readNdjson("examples/lora-aprs-json-stream.ndjson");
-const events = readNdjson("examples/lora-aprs-json-events.ndjson");
+const events = readNdjson("examples/lora-aprs-json-vectors.ndjson");
 for (const [file, records] of [["stream", stream], ["events", events]]) {
   records.forEach((record, index) => {
     const label = `${file}:${index + 1}`;
@@ -165,6 +165,10 @@ schemaInvalid(changed(byType.rx, { sequence: 0 }), "rx sequence zero");
 schemaInvalid(changed(byType.rx, { created_at: "2026-09-20T10:00:00+02:00" }), "non-UTC time");
 schemaInvalid(changed(byType.error, { event: "future_event" }), "unknown event");
 schemaInvalid(changed(byType.error, { schema_version: "1.1" }), "unsupported schema version");
+
+const unsupportedPacketStatus = structuredClone(byType.rx);
+unsupportedPacketStatus.packet.parse_status = "unsupported";
+schemaInvalid(unsupportedPacketStatus, "unsupported packet parse status");
 
 const badBase64 = structuredClone(byType.rx);
 badBase64.packet.raw_tnc2_base64 = "%%%=";
@@ -203,4 +207,4 @@ malformedReception.sequence = 2;
 malformedReception.packet = { raw_tnc2_base64: "QkFE", parse_status: "malformed" };
 schemaValid(malformedReception, "lossless malformed reception");
 
-console.log(`validated ${stream.length + events.length + 3} positive and 13 negative vectors`);
+console.log(`validated ${stream.length + events.length + 3} positive and 14 negative vectors`);
