@@ -564,7 +564,7 @@ Where they disagree about an APRS field, APRS 1.2c takes precedence.
 
 ## 13. Acknowledgements
 
-RXT (Receive eXtended Telemetry) was developed by Jon (N7UV). The RXT
+RXT (Receive eXtended Telemetry) was developed by Jon Adams (N7UV). The RXT
 interoperability rules in this specification were verified against the GPLv3
 LoRa_APRS_iGate implementation by Ricardo Guzman (CA2RXU). These
 acknowledgements are informational and do not alter the normative requirements
