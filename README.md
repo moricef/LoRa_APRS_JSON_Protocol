@@ -111,3 +111,8 @@ stable machine-readable result code.
 
 Implementations must also enforce authorization, rate limits, radio duty-cycle
 rules, bounded queues, record-size limits, and safe handling of untrusted text.
+
+## License
+
+This specification, schema, validation code, and examples are licensed under
+the [Apache License 2.0](LICENSE).
