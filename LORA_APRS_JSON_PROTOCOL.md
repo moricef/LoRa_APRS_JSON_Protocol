@@ -128,7 +128,7 @@ are also non-replayable and have no reception sequence.
 | Event | Direction | Purpose |
 | --- | --- | --- |
 | hello | producer → client | Identity, versions, features and limits |
-| rx | producer → client | One physical LoRa APRS reception |
+| rx | producer → client | One accepted LoRa TNC2-compatible reception |
 | heartbeat | producer → client | Liveness and current sequence |
 | gap | producer → client | Requested history is unavailable |
 | error | either | Structured processing or protocol error |
