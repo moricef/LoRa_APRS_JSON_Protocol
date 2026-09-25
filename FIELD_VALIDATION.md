@@ -105,3 +105,20 @@ gated by F6DEV-10. The APRS-IS presentation labels these frames as
 `Unsupported packet format` because its application decoder does not render
 this controlled Mic-E payload. That label does not indicate a transport,
 reception or JSON failure.
+
+## 2026-09-23 to 2026-09-24: sustained APRS telemetry
+
+APRS-IS retained 52 consecutive encoded telemetry beacons from F4MLV-10,
+starting at 20:40:06 CEST and ending at 09:24:49 CEST. The two-character
+Base91 sequence advanced without a gap from `$+` through `$^`, at the expected
+approximately 15-minute interval. The packets were heard by multiple gateways,
+including F4GCF-10, F4INI-10, F4JQT-10, F4MLV-2, F5ZMN-10, F6DEV-10,
+F4GCF-14 and F4BPJ-10.
+
+These records validate sustained beacon scheduling, encoded APRS telemetry,
+RF transmission and APRS-IS delivery. The `|...|` suffix is standard APRS
+Base91 telemetry. It is distinct from an RF-only RXT trailer, which uses
+`{...}`. The absence of an RXT trailer on these locally generated beacons is
+expected because they have no preceding RF reception from which to derive hop
+measurements. This endurance series does not by itself validate the JSON/RXT
+event path; that path is covered by the retained captures above.
