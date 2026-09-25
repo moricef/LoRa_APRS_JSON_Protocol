@@ -32,6 +32,16 @@ cursor, consumed the retained reception, and advanced the stored cursor to
 handler accepts the reception. The captured reception is stored in
 `captures/f1zdb-10-history-resume-rx.ndjson`.
 
+APRS-IS independently recorded the controlled traffic at 12:21 CEST. The
+digipeated `replay A` copy carried an RXT trailer, and `replay B` appeared both
+directly through `qAO,F4MLV-15` and through F4MLV-10:
+
+```text
+12:21:51 F4MLV-2>APGRWO,F4MLV-10*,WIDE2-1,qAR,F4JQT-10:>GWVAL replay A 20260925{bo!H}
+12:21:54 F4MLV-2>APGRWO,WIDE1-1,WIDE2-1,qAO,F4MLV-15:>GWVAL replay B 20260925
+12:22:00 F4MLV-2>APGRWO,F4MLV-10*,WIDE2-1,qAR,F4BPJ-10:>GWVAL replay B 20260925{bg!H}
+```
+
 ### Unavailable cursors
 
 A request after `fb52a5a9:1` returned `hello` followed by a `gap` whose reason
@@ -81,3 +91,17 @@ Both records are valid JSON, preserve the exact information bytes as
 Graywolf consumed the stream and advanced its persisted cursor through
 `83fb7876:3`. The captured replay is stored in
 `captures/f4mlv-15-mice-binary-rx.ndjson`.
+
+APRS-IS independently recorded the corrected transmission at 13:37 CEST:
+
+```text
+13:37:31 F4MLV-2>4R5WV3,WIDE1-1,qAO,F4MLV-15:<0x1c>w25l*o[/"=?}
+13:37:36 F4MLV-2>4R5WV3,F4MLV-10*,qAO,F6DEV-10:<0x1c>w25l*o[/"=?}{ad!G}
+```
+
+The first line proves reception and APRS-IS gating by F4MLV-15. The second
+proves the RF digipeated copy and visible RXT trailer; its APRS-IS entry was
+gated by F6DEV-10. The APRS-IS presentation labels these frames as
+`Unsupported packet format` because its application decoder does not render
+this controlled Mic-E payload. That label does not indicate a transport,
+reception or JSON failure.
