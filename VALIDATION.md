@@ -1,24 +1,29 @@
 # Validation status
 
-Validation date: 2026-09-20
+Validation date: 2026-09-25
 
 The protocol is a validated implementation candidate for its transport and
 event model. It is not yet validated as a deployed interoperability standard.
 
 ## Implemented interoperability pilot
 
-The receive-side pilot now has two independent implementations:
+The receive-side pilot now has two independent implementations with reliable
+reconnection support:
 
 - LoRa_APRS_iGate `feature/aprs-json-producer` emits the versioned NDJSON
-  stream from real LoRa receptions;
+  stream, 15-second heartbeats, bounded history replay and explicit gaps;
 - Graywolf `feature/rxt-telemetry` consumes authoritative packet bytes and RXT
-  metadata, reconnects after interruption and prevents RF feedback loops.
+  metadata, negotiates capabilities, persists its cursor, reconnects with
+  `?after=`, handles heartbeat/gap/error events and prevents RF feedback loops.
 
 The captured stream `captures/f4mlv-2-pilot.ndjson` contains the firmware
-`hello` record and two real `4.0.2RXT` receptions. Firmware paths examined
-during the integration audit also preserve legacy `has_data:false` hops and
-transport CRC-valid malformed or blacklisted receptions without admitting
-them to APRS-IS, digi, TNC or MQTT processing.
+`hello` record and two real `4.0.2RXT` receptions. The later
+`captures/f4mlv-2-heartbeat.ndjson` hardware capture records the deployed
+producer advertising `heartbeat`, `gap` and `history_resume`, followed by its
+15-second heartbeat. Firmware paths examined during the integration audit also
+preserve legacy `has_data:false` hops and transport CRC-valid malformed or
+blacklisted receptions without admitting them to APRS-IS, digi, TNC or MQTT
+processing.
 
 ## Automated checks
 
@@ -33,16 +38,18 @@ Validate one or more captured NDJSON streams with the same schema and semantic
 checks:
 
 ```sh
-node validate_protocol.cjs captures/f4mlv-2-pilot.ndjson
+node validate_protocol.cjs \
+  captures/f4mlv-2-pilot.ndjson \
+  captures/f4mlv-2-heartbeat.ndjson
 ```
 
 The validator compiles the schema as JSON Schema 2020-12 with AJV strict mode
-and format validation enabled. It currently checks 22 positive and 28 negative
+and format validation enabled. It currently checks 30 positive and 30 negative
 vectors, including every declared event type.
 
-The executable validator is `validate_protocol.cjs`. The coherent single- and
-multi-reception stream examples and the independent event vectors are
-described separately in `examples/README.md`.
+The executable validator is `validate_protocol.cjs`. The coherent fresh,
+successful-resume and gap stream examples and the independent event vectors
+are described separately in `examples/README.md`.
 
 The checks cover:
 
@@ -63,6 +70,8 @@ The checks cover:
 - control events without reception sequence identities;
 - producer-originated error identity and uptime requirements;
 - capability requirements for history resume;
+- complete ordered replay through the atomic history/live boundary;
+- a failed resume represented by `gap`, followed by the next live reception;
 - reception sequence starting at 1, exact continuity, ascending stream order,
   unique event identifiers, stable boot identity and monotonic uptime;
 - UTC timestamps, invalid Base64, unknown events and invalid APRS warnings;
@@ -71,9 +80,8 @@ The checks cover:
 
 The APRS checks were reviewed against APRS Protocol Reference 1.2c. The RXT
 checks use the normative `rxt-v1` equations in the protocol specification.
-The multi-reception fixture models a fresh live stream. It validates general
-ordering invariants but does not simulate the history/resume exchange or prove
-replay behavior.
+The resume fixtures validate protocol and ordering semantics deterministically.
+They do not by themselves prove the deployed firmware/Graywolf exchange.
 
 ## Corrections made during audit
 
@@ -99,12 +107,16 @@ replay behavior.
 
 Before declaring version 1.0 production-proven, complete these steps:
 
-1. Implement producer history replay, then exercise disconnect/resume,
-   history expiry and restart cases end to end.
-2. Exercise slow-client disconnection and the configured stream queue limits
-   on target hardware.
-3. Capture real binary Mic-E, malformed, blacklisted, third-party and mixed
-   legacy/RXT multi-hop frames and compare every authoritative byte end to end.
+1. Exercise duplicate delivery end to end and retain the resulting logs.
+   Disconnect/resume, history expiry, unknown cursor and restart handling were
+   exercised on deployed hardware on 2026-09-25; see `FIELD_VALIDATION.md` and
+   the corresponding `captures/f1zdb-10-*` records.
+2. Exercise slow-client disconnection on target hardware. The deployed
+   producer's ten-event snapshot/history bound was verified on 2026-09-25.
+3. Capture malformed, blacklisted and mixed legacy/RXT multi-hop frames and
+   compare every authoritative byte end to end. Controlled third-party and
+   binary Mic-E `0x1c` RF cases were validated on 2026-09-25; see
+   `FIELD_VALIDATION.md` and `captures/f4mlv-15-mice-binary-rx.ndjson`.
 4. Verify memory and maximum-record limits on the target hardware.
 5. Have a developer not involved in this draft perform an independent review.
 

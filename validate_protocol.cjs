@@ -212,13 +212,25 @@ function checkProducerStreamEvent(event, label) {
   assert.ok(Number.isInteger(event.uptime_ms), `${label}: missing producer uptime_ms`);
 }
 
-function checkOrderedRxStream(records, label) {
+function checkOrderedRxStream(records, label, options = {}) {
   assert.equal(records[0]?.event, "hello", `${label}: stream must start with hello`);
   const hello = records[0];
+  if (options.expectGap) {
+    assert.equal(records[1]?.event, "gap", `${label}: gap must immediately follow hello`);
+  }
   const receptions = records.filter((record) => record.event === "rx");
   const eventIds = new Set();
-  let previousSequence = hello.latest_sequence;
-  let previousUptime = hello.uptime_ms;
+  const firstSequence = receptions[0]?.sequence;
+  const inferredResume = firstSequence !== undefined && firstSequence <= hello.latest_sequence;
+  let previousSequence = options.afterSequence ?? (
+    inferredResume ? firstSequence - 1 : hello.latest_sequence
+  );
+  // Replayed receptions predate the hello emitted for the new connection.
+  // Their uptime must remain ordered among themselves, but cannot be compared
+  // against that later hello uptime.
+  let previousUptime = inferredResume && receptions.length > 0
+    ? receptions[0].uptime_ms
+    : hello.uptime_ms;
   for (const [index, reception] of receptions.entries()) {
     assert.equal(reception.boot_id, hello.boot_id, `${label}: rx ${index + 1} changed boot_id`);
     assert.equal(
@@ -239,6 +251,14 @@ function checkOrderedRxStream(records, label) {
     previousSequence = reception.sequence;
     previousUptime = reception.uptime_ms;
   }
+  if (options.afterSequence !== undefined && options.expectCompleteReplay) {
+    const replay = receptions.filter((reception) => reception.sequence <= hello.latest_sequence);
+    assert.equal(
+      replay.at(-1)?.sequence,
+      hello.latest_sequence,
+      `${label}: replay did not reach the hello history/live boundary`,
+    );
+  }
 }
 
 function checkTxQueueable(event, label) {
@@ -254,10 +274,14 @@ function checkTxQueueable(event, label) {
 
 const stream = readNdjson("examples/lora-aprs-json-stream.ndjson");
 const sequenceStream = readNdjson("examples/lora-aprs-json-sequence-stream.ndjson");
+const resumeStream = readNdjson("examples/lora-aprs-json-resume-stream.ndjson");
+const gapStream = readNdjson("examples/lora-aprs-json-gap-stream.ndjson");
 const events = readNdjson("examples/lora-aprs-json-vectors.ndjson");
 for (const [file, records] of [
   ["stream", stream],
   ["sequence-stream", sequenceStream],
+  ["resume-stream", resumeStream],
+  ["gap-stream", gapStream],
   ["events", events],
 ]) {
   records.forEach((record, index) => {
@@ -270,6 +294,11 @@ for (const [file, records] of [
 assert.equal(stream[0].event, "hello", "stream must start with hello");
 checkOrderedRxStream(stream, "stream");
 checkOrderedRxStream(sequenceStream, "sequence-stream");
+checkOrderedRxStream(resumeStream, "resume-stream", {
+  afterSequence: 1,
+  expectCompleteReplay: true,
+});
+checkOrderedRxStream(gapStream, "gap-stream", { expectGap: true });
 const eventTypes = ["hello", "rx", "heartbeat", "gap", "error", "tx_request", "tx_result"];
 const byType = Object.fromEntries(eventTypes.map((type) => [
   type,
@@ -427,6 +456,23 @@ const outOfOrderReplay = structuredClone(sequenceStream);
 semanticInvalid(
   () => checkOrderedRxStream(outOfOrderReplay, "out-of-order replay"),
   "out-of-order RX replay",
+);
+
+const incompleteReplay = structuredClone(resumeStream);
+incompleteReplay.splice(1, 1);
+semanticInvalid(
+  () => checkOrderedRxStream(incompleteReplay, "incomplete replay", {
+    afterSequence: 1,
+    expectCompleteReplay: true,
+  }),
+  "incomplete history replay",
+);
+
+const lateGap = structuredClone(gapStream);
+[lateGap[1], lateGap[2]] = [lateGap[2], lateGap[1]];
+semanticInvalid(
+  () => checkOrderedRxStream(lateGap, "late gap", { expectGap: true }),
+  "gap after live reception",
 );
 
 console.log(`validated ${positiveCount} positive and ${negativeCount} negative vectors`);

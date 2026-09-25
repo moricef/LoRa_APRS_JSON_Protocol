@@ -16,12 +16,16 @@ and event model. It is not yet a deployed interoperability standard.
 
 An actual firmware producer now runs on the LoRa_APRS_iGate
 `feature/aprs-json-producer` branch, and Graywolf's `feature/rxt-telemetry`
-branch provides an independent consumer. The repository includes a captured
-firmware stream with two real RXT receptions.
+branch provides an independent consumer. Both sides implement reliable
+reconnection: bounded history, heartbeats and gaps on the producer; capability
+negotiation, a persistent cursor and `?after=` resume on the consumer. The
+repository includes hardware captures of real RXT receptions and the deployed
+heartbeat-capable producer.
 
-Remaining validation focuses on reconnect and history behavior, target-memory
-limits, and additional real captures including binary Mic-E, malformed,
-blacklisted and mixed legacy/RXT multi-hop traffic. See
+Remaining validation focuses on duplicate delivery, slow-client and
+target-memory limits, and additional RF captures for malformed, blacklisted
+and mixed legacy/RXT multi-hop traffic. Binary Mic-E and third-party RF cases,
+history resume and unavailable cursors have been exercised end to end. See
 [VALIDATION.md](VALIDATION.md) for the detailed status.
 
 ## Design goals
@@ -48,12 +52,18 @@ blacklisted and mixed legacy/RXT multi-hop traffic. See
   — one coherent producer-to-client stream.
 - [examples/lora-aprs-json-sequence-stream.ndjson](examples/lora-aprs-json-sequence-stream.ndjson)
   — a coherent multi-reception stream used to validate ordering and identity.
+- [examples/lora-aprs-json-resume-stream.ndjson](examples/lora-aprs-json-resume-stream.ndjson)
+  — a successful bounded-history replay crossing into live reception.
+- [examples/lora-aprs-json-gap-stream.ndjson](examples/lora-aprs-json-gap-stream.ndjson)
+  — an unavailable cursor followed by live reception.
 - [examples/lora-aprs-json-vectors.ndjson](examples/lora-aprs-json-vectors.ndjson)
   — independent positive vectors covering every event type.
 - [examples/README.md](examples/README.md) — distinction between stream examples
   and independent vectors.
 - [validate_protocol.cjs](validate_protocol.cjs) — executable schema and
   semantic validation suite.
+- [FIELD_VALIDATION.md](FIELD_VALIDATION.md) — dated deployed interoperability
+  results and links to retained captures.
 - [package-lock.json](package-lock.json) — exact dependency graph used for
   reproducible validator installation with `npm ci`.
 - [NOTICE](NOTICE) — origin and implementation attribution for RXT.
@@ -103,12 +113,12 @@ npm test
 ```
 
 The suite compiles the schema with AJV in strict Draft 2020-12 mode and format
-validation enabled. It currently exercises 22 positive and 28 negative
+validation enabled. It currently exercises 30 positive and 30 negative
 vectors. Semantic checks include Base64 byte equality, APRS compressed position
 decoding, DTI offsets, address suffix preservation, RXT on non-APRS TNC2 data,
-CRC rejection, multi-reception sequence continuity and identity, malformed
-packet transport, version rejection, and pre-queue TX validation and lifecycle
-constraints.
+CRC rejection, fresh and resumed stream continuity, replay-boundary coverage,
+gap recovery, malformed packet transport, version rejection, and pre-queue TX
+validation and lifecycle constraints.
 
 ## Optional transmission
 
